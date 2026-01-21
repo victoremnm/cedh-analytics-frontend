@@ -471,8 +471,8 @@ function SeatSurvivalChart({ data, maxRounds }: { data: SeatSurvivalPoint[]; max
         {/* Bars */}
         <div className="flex-1 ml-14 flex items-end gap-2 h-full">
           {rounds.map((round) => (
-            <div key={round} className="flex-1 flex flex-col items-center">
-              <div className="flex gap-0.5 items-end h-full w-full">
+            <div key={round} className="flex-1 flex flex-col items-center h-full">
+              <div className="flex gap-0.5 items-end h-full w-full flex-1">
                 {[0, 1, 2, 3].map((seat) => {
                   const seatData = bySeat.get(seat) || [];
                   const roundData = seatData.find((p) => p.round_number === round);
@@ -545,8 +545,8 @@ function GlobalSurvivalChart({ data, maxRounds }: { data: SurvivalPoint[]; maxRo
             const isBelow50 = survival < 0.5;
 
             return (
-              <div key={round} className="flex-1 flex flex-col items-center">
-                <div className="w-full h-full flex items-end">
+              <div key={round} className="flex-1 flex flex-col items-center h-full">
+                <div className="w-full flex-1 flex items-end">
                   <div
                     className="w-full rounded-t transition-all hover:opacity-80"
                     style={{
@@ -632,8 +632,8 @@ function ComparativeSurvivalChart({
             const glbSurvival = glbData?.cumulative_survival || 0;
 
             return (
-              <div key={round} className="flex-1 flex flex-col items-center">
-                <div className="flex gap-1 items-end h-full w-full">
+              <div key={round} className="flex-1 flex flex-col items-center h-full">
+                <div className="flex gap-1 items-end w-full flex-1">
                   {/* Global bar (background) */}
                   <div
                     className="flex-1 rounded-t transition-all opacity-30 border border-[#a1a1aa]"
