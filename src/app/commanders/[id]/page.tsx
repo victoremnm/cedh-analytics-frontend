@@ -1,4 +1,8 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { normalizeDisplayString } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -9,16 +13,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-// Helper to convert string/number values from PostgreSQL NUMERIC to number
 function toNumber(val: number | string | null | undefined): number {
   if (val === null || val === undefined) return 0;
   return typeof val === "string" ? parseFloat(val) : val;
+}
+
+function normalCdf(x: number) {
+  const sign = x >= 0 ? 1 : -1;
+  const absX = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * absX);
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const erf =
+    1 -
+    (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) *
+      Math.exp(-absX * absX);
+  return 0.5 * (1 + sign * erf);
+}
+
+function formatPValue(pValue: number) {
+  if (pValue < 0.001) return "<0.001";
+  if (pValue < 0.01) return "<0.01";
+  return pValue.toFixed(3);
 }
 
 interface CommanderStat {
@@ -92,6 +114,22 @@ interface CommanderMatchup {
   confidence_level: string;
 }
 
+interface RecentFinish {
+  id: string;
+  final_standing: number | null;
+  made_top_cut: boolean;
+  made_top_16: boolean;
+  decklist_url: string | null;
+  tournament: {
+    id: string;
+    name: string;
+    start_date: string;
+    player_count: number;
+    top_cut: number;
+    topdeck_tid: string;
+  };
+}
+
 async function getCommanderDetails(id: string) {
   const { data, error } = await supabase
     .from("commander_stats")
@@ -103,6 +141,49 @@ async function getCommanderDetails(id: string) {
     return null;
   }
   return data as CommanderStat;
+}
+
+async function getRecentFinishes(commanderId: string) {
+  const { data, error } = await supabase
+    .from("tournament_entries")
+    .select(
+      "id, final_standing, made_top_cut, made_top_16, decklist_url, tournaments ( id, name, start_date, player_count, top_cut, topdeck_tid )"
+    )
+    .eq("commander_id", commanderId)
+    .or("made_top_16.eq.true,made_top_cut.eq.true,final_standing.eq.1")
+    .order("start_date", { ascending: false, foreignTable: "tournaments" });
+
+  if (error) {
+    console.error("Error fetching recent finishes:", error);
+    return [];
+  }
+
+  const finishes = (data || [])
+    .filter((row) => row.tournaments)
+    .map((row) => ({
+      id: row.id,
+      final_standing: row.final_standing,
+      made_top_cut: row.made_top_cut,
+      made_top_16: row.made_top_16,
+      decklist_url: row.decklist_url,
+      tournament: row.tournaments,
+    })) as RecentFinish[];
+
+  finishes.sort((a, b) => {
+    const dateA = new Date(a.tournament.start_date).getTime();
+    const dateB = new Date(b.tournament.start_date).getTime();
+    return dateB - dateA;
+  });
+
+  const grouped = new Map<string, RecentFinish>();
+  for (const finish of finishes) {
+    const key = finish.decklist_url ?? finish.id;
+    if (!grouped.has(key)) {
+      grouped.set(key, finish);
+    }
+  }
+
+  return Array.from(grouped.values()).slice(0, 8);
 }
 
 async function getCardReport(commanderId: string) {
@@ -140,7 +221,6 @@ async function getNotablePlayers(commanderId: string): Promise<NotablePlayer[]> 
   });
 
   if (error) {
-    // Fallback: the RPC might not exist yet, return empty
     console.error("Error fetching notable players:", error);
     return [];
   }
@@ -153,7 +233,6 @@ async function getCommanderMatchups(commanderId: string): Promise<CommanderMatch
   });
 
   if (error) {
-    // Fallback: the RPC might not exist yet, return empty
     console.error("Error fetching matchups:", error);
     return [];
   }
@@ -172,14 +251,14 @@ export default async function CommanderDetailPage({
     notFound();
   }
 
-  const [cardReport, cardPerformance, notablePlayers, matchups] = await Promise.all([
+  const [cardReport, cardPerformance, notablePlayers, matchups, recentFinishes] = await Promise.all([
     getCardReport(id),
     getCardPerformance(id),
     getNotablePlayers(id),
     getCommanderMatchups(id),
+    getRecentFinishes(id),
   ]);
 
-  // Get top performing and underperforming cards
   const topPerformingCards = cardPerformance
     .filter((c) => parseFloat(c.win_rate_delta) > 0)
     .slice(0, 20);
@@ -188,12 +267,10 @@ export default async function CommanderDetailPage({
     .sort((a, b) => parseFloat(a.win_rate_delta) - parseFloat(b.win_rate_delta))
     .slice(0, 20);
 
-  // Create a map of card performance data for quick lookup
   const cardPerformanceMap = new Map(
     cardPerformance.map((cp) => [cp.card_name, cp])
   );
 
-  // Group cards by tier
   const cardsByTier = {
     core: cardReport.filter((c) => c.tier === "core"),
     essential: cardReport.filter((c) => c.tier === "essential"),
@@ -202,93 +279,81 @@ export default async function CommanderDetailPage({
     spice: cardReport.filter((c) => c.tier === "spice"),
   };
 
+  const winRateValue = parseFloat(commander.avg_win_rate);
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="mb-6">
-          <Link
-            href="/commanders"
-            className="text-[#a1a1aa] hover:text-[#fafafa] text-sm"
-          >
-            ← Back to Commanders
-          </Link>
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            {commander.color_identity?.filter(Boolean).map((color) => (
-              <ColorBadge key={color} color={color} size="lg" />
-            ))}
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-border/70 bg-card/60 px-6 py-6">
+          <div className="knd-watermark absolute inset-0" />
+          <div className="relative">
+            <Link
+              href="/commanders"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Commanders
+            </Link>
+            <div className="mt-4 flex items-center gap-3">
+              {commander.color_identity?.filter(Boolean).map((color) => (
+                <ColorBadge key={color} color={color} size="lg" />
+              ))}
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-foreground md:text-4xl">
+              {normalizeDisplayString(commander.commander_name)}
+            </h1>
+            {commander.archetype && (
+              <p className="text-muted-foreground mt-1">
+                {normalizeDisplayString(commander.archetype)}
+              </p>
+            )}
           </div>
-          <h1 className="text-4xl font-bold text-[#fafafa]">
-            {commander.commander_name}
-          </h1>
-          {commander.archetype && (
-            <p className="text-[#a1a1aa] mt-1">{commander.archetype}</p>
-          )}
         </div>
 
-        {/* Key Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-          <StatCard
-            label="Total Entries"
-            value={commander.total_entries.toLocaleString()}
-            color="#c9a227"
-          />
-          <StatCard
-            label="Tournaments"
-            value={commander.tournaments_played.toString()}
-            color="#8b5cf6"
-          />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6 mb-8">
+          <StatCard label="Total Entries" value={commander.total_entries.toLocaleString()} tone="amber" />
+          <StatCard label="Tournaments" value={commander.tournaments_played.toString()} tone="primary" />
           <StatCard
             label="Win Rate"
-            value={`${(parseFloat(commander.avg_win_rate) * 100).toFixed(1)}%`}
-            color={parseFloat(commander.avg_win_rate) > 0.25 ? "#22c55e" : "#a1a1aa"}
+            value={`${(winRateValue * 100).toFixed(1)}%`}
+            tone={winRateValue > 0.25 ? "primary" : "neutral"}
           />
           <StatCard
             label="Top 16 Rate"
             value={`${(parseFloat(commander.conversion_rate_top_16) * 100).toFixed(1)}%`}
-            color="#f59e0b"
+            tone="amber"
           />
-          <StatCard
-            label="Total Wins"
-            value={commander.total_wins.toLocaleString()}
-            color="#22c55e"
-          />
+          <StatCard label="Total Wins" value={commander.total_wins.toLocaleString()} tone="primary" />
           <StatCard
             label="W/L/D"
             value={`${commander.total_wins}/${commander.total_losses}/${commander.total_draws}`}
-            color="#a1a1aa"
+            tone="neutral"
           />
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="bg-[#1a1a1a] border border-[#2a2a2a] flex-wrap h-auto gap-1 p-1">
+          <TabsList className="flex flex-wrap gap-1 rounded-xl border border-border/70 bg-card/60 p-1">
             <TabsTrigger
               value="overview"
-              className="data-[state=active]:bg-[#2a2a2a] data-[state=active]:text-[#fafafa]"
+              className="data-[state=active]:bg-muted/60 data-[state=active]:text-foreground"
             >
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="performance"
-              className="data-[state=active]:bg-[#2a2a2a] data-[state=active]:text-[#fafafa]"
+              className="data-[state=active]:bg-muted/60 data-[state=active]:text-foreground"
             >
               Card Performance
             </TabsTrigger>
             <TabsTrigger
               value="cards"
-              className="data-[state=active]:bg-[#2a2a2a] data-[state=active]:text-[#fafafa]"
+              className="data-[state=active]:bg-muted/60 data-[state=active]:text-foreground"
             >
               Card Frequencies ({cardReport.length})
             </TabsTrigger>
             {notablePlayers.length > 0 && (
               <TabsTrigger
                 value="players"
-                className="data-[state=active]:bg-[#2a2a2a] data-[state=active]:text-[#fafafa]"
+                className="data-[state=active]:bg-muted/60 data-[state=active]:text-foreground"
               >
                 Notable Players ({notablePlayers.length})
               </TabsTrigger>
@@ -296,7 +361,7 @@ export default async function CommanderDetailPage({
             {matchups.length > 0 && (
               <TabsTrigger
                 value="matchups"
-                className="data-[state=active]:bg-[#2a2a2a] data-[state=active]:text-[#fafafa]"
+                className="data-[state=active]:bg-muted/60 data-[state=active]:text-foreground"
               >
                 Matchups
               </TabsTrigger>
@@ -304,103 +369,95 @@ export default async function CommanderDetailPage({
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Performance Summary */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-                <CardHeader>
-                  <CardTitle className="text-[#fafafa]">
-                    Performance Summary
-                  </CardTitle>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="knd-panel-header">
+                  <CardTitle className="text-lg">Performance Summary</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 text-sm">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#a1a1aa]">Expected Win Rate (4-player)</span>
-                    <span className="font-mono">25.0%</span>
+                    <span className="text-muted-foreground">Expected Win Rate (4-player)</span>
+                    <span className="font-mono text-foreground">25.0%</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#a1a1aa]">Actual Win Rate</span>
+                    <span className="text-muted-foreground">Actual Win Rate</span>
                     <span
-                      className="font-mono font-bold"
-                      style={{
-                        color:
-                          parseFloat(commander.avg_win_rate) > 0.25
-                            ? "#22c55e"
-                            : parseFloat(commander.avg_win_rate) < 0.2
-                            ? "#ef4444"
-                            : "#a1a1aa",
-                      }}
+                      className={`font-mono font-semibold ${
+                        winRateValue > 0.25
+                          ? "text-primary"
+                          : winRateValue < 0.2
+                            ? "text-[hsl(var(--knd-amber))]"
+                            : "text-muted-foreground"
+                      }`}
                     >
-                      {(parseFloat(commander.avg_win_rate) * 100).toFixed(1)}%
+                      {(winRateValue * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#a1a1aa]">Win Rate Delta</span>
+                    <span className="text-muted-foreground">Win Rate Delta</span>
                     <span
-                      className="font-mono"
-                      style={{
-                        color:
-                          parseFloat(commander.avg_win_rate) > 0.25
-                            ? "#22c55e"
-                            : "#ef4444",
-                      }}
+                      className={`font-mono ${
+                        winRateValue > 0.25
+                          ? "text-primary"
+                          : "text-[hsl(var(--knd-amber))]"
+                      }`}
                     >
-                      {parseFloat(commander.avg_win_rate) > 0.25 ? "+" : ""}
-                      {((parseFloat(commander.avg_win_rate) - 0.25) * 100).toFixed(1)}%
+                      {winRateValue > 0.25 ? "+" : ""}
+                      {((winRateValue - 0.25) * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <hr className="border-[#2a2a2a]" />
+                  <hr className="border-border/60" />
                   <div className="flex justify-between items-center">
-                    <span className="text-[#a1a1aa]">Top 16 Finishes</span>
-                    <span className="font-mono text-[#f59e0b]">
+                    <span className="text-muted-foreground">Top 16 Finishes</span>
+                    <span className="font-mono text-[hsl(var(--knd-amber))]">
                       {commander.top_16_count}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#a1a1aa]">Top Cut Finishes</span>
-                    <span className="font-mono text-[#8b5cf6]">
+                    <span className="text-muted-foreground">Top Cut Finishes</span>
+                    <span className="font-mono text-muted-foreground">
                       {commander.top_cut_count}
                     </span>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Tier Breakdown */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-                <CardHeader>
-                  <CardTitle className="text-[#fafafa]">
-                    Card Tier Breakdown
-                  </CardTitle>
+              <Card>
+                <CardHeader className="knd-panel-header">
+                  <CardTitle className="text-lg">Card Tier Breakdown</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 text-sm">
                   <TierRow
                     tier="Core"
                     count={cardsByTier.core.length}
                     description="80%+ inclusion"
-                    color="#22c55e"
+                    tone="primary"
                   />
                   <TierRow
                     tier="Essential"
                     count={cardsByTier.essential.length}
                     description="60-79% inclusion"
-                    color="#84cc16"
+                    tone="primary"
+                    muted
                   />
                   <TierRow
                     tier="Common"
                     count={cardsByTier.common.length}
                     description="30-59% inclusion"
-                    color="#f59e0b"
+                    tone="amber"
                   />
                   <TierRow
                     tier="Flex"
                     count={cardsByTier.flex.length}
                     description="10-29% inclusion"
-                    color="#8b5cf6"
+                    tone="neutral"
                   />
                   <TierRow
                     tier="Spice"
                     count={cardsByTier.spice.length}
                     description="<10% inclusion"
-                    color="#ef4444"
+                    tone="neutral"
+                    muted
                   />
                 </CardContent>
               </Card>
@@ -408,21 +465,18 @@ export default async function CommanderDetailPage({
           </TabsContent>
 
           <TabsContent value="performance" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Top Performing Cards */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#22c55e]">
-                <CardHeader>
-                  <CardTitle className="text-[#22c55e] flex items-center gap-2">
-                    <span>Top Performing Cards</span>
-                  </CardTitle>
-                  <p className="text-[#a1a1aa] text-sm">
-                    Cards that correlate with higher win rates
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card className="border-l-2 border-l-[hsl(var(--knd-cyan))]">
+                <CardHeader className="knd-panel-header">
+                  <CardTitle className="text-lg text-primary">Top Performing Cards</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Cards that correlate with higher win rates.
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {topPerformingCards.length === 0 ? (
-                      <p className="text-[#a1a1aa] text-sm">Insufficient data for analysis</p>
+                      <p className="text-sm text-muted-foreground">Insufficient data for analysis.</p>
                     ) : (
                       topPerformingCards.map((card) => (
                         <PerformanceCardRow key={card.card_name} card={card} />
@@ -432,20 +486,19 @@ export default async function CommanderDetailPage({
                 </CardContent>
               </Card>
 
-              {/* Underperforming Cards */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#ef4444]">
-                <CardHeader>
-                  <CardTitle className="text-[#ef4444] flex items-center gap-2">
-                    <span>Underperforming Cards</span>
+              <Card className="border-l-2 border-l-[hsl(var(--knd-amber))]">
+                <CardHeader className="knd-panel-header">
+                  <CardTitle className="text-lg text-[hsl(var(--knd-amber))]">
+                    Underperforming Cards
                   </CardTitle>
-                  <p className="text-[#a1a1aa] text-sm">
-                    Cards that correlate with lower win rates
+                  <p className="text-sm text-muted-foreground">
+                    Cards that correlate with lower win rates.
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {underperformingCards.length === 0 ? (
-                      <p className="text-[#a1a1aa] text-sm">Insufficient data for analysis</p>
+                      <p className="text-sm text-muted-foreground">Insufficient data for analysis.</p>
                     ) : (
                       underperformingCards.map((card) => (
                         <PerformanceCardRow key={card.card_name} card={card} isNegative />
@@ -456,14 +509,13 @@ export default async function CommanderDetailPage({
               </Card>
             </div>
 
-            {/* Methodology Note */}
-            <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-6">
+            <Card className="mt-6">
               <CardContent className="pt-6">
-                <p className="text-[#a1a1aa] text-sm">
-                  <strong className="text-[#fafafa]">Note:</strong> Win rate delta shows the
+                <p className="text-sm text-muted-foreground">
+                  <strong className="text-foreground">Note:</strong> Win rate delta shows the
                   difference between average win rate of decks running this card vs the commander&apos;s
-                  baseline. Cards with higher standard deviation have less certainty.
-                  Requires minimum 3 deck appearances.
+                  baseline. Cards with higher standard deviation have less certainty. Requires minimum
+                  3 deck appearances.
                 </p>
               </CardContent>
             </Card>
@@ -471,80 +523,72 @@ export default async function CommanderDetailPage({
 
           {notablePlayers.length > 0 && (
             <TabsContent value="players" className="mt-6">
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-                <CardHeader>
-                  <CardTitle className="text-[#fafafa]">
-                    Notable {commander.commander_name} Players
+              <Card>
+                <CardHeader className="knd-panel-header">
+                  <CardTitle className="text-lg">
+                    Notable {normalizeDisplayString(commander.commander_name)} Players
                   </CardTitle>
-                  <p className="text-[#a1a1aa] text-sm">
-                    Players with 2+ tournament entries using this commander
+                  <p className="text-sm text-muted-foreground">
+                    Players with 2+ tournament entries using this commander.
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
-                          <TableHead className="text-[#a1a1aa]">Player</TableHead>
-                          <TableHead className="text-[#a1a1aa] text-right">Entries</TableHead>
-                          <TableHead className="text-[#a1a1aa] text-right">Games</TableHead>
-                          <TableHead className="text-[#a1a1aa] text-right">Win Rate</TableHead>
-                          <TableHead className="text-[#a1a1aa] text-right">Top 16s</TableHead>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                        <TableHead>Player</TableHead>
+                        <TableHead className="text-right">Entries</TableHead>
+                        <TableHead className="text-right">Games</TableHead>
+                        <TableHead className="text-right">Win Rate</TableHead>
+                        <TableHead className="text-right">Top 16s</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {notablePlayers.map((player) => (
+                        <TableRow key={player.player_name} className="border-border/60">
+                          <TableCell className="font-medium">
+                            {player.topdeck_id ? (
+                              <a
+                                href={`https://topdeck.gg/profile/${player.topdeck_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-foreground hover:text-primary"
+                              >
+                                {player.player_name}
+                                <span className="ml-1 text-muted-foreground text-xs">↗</span>
+                              </a>
+                            ) : (
+                              player.player_name
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-[hsl(var(--knd-amber))]">
+                            {player.entries}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">
+                            {player.total_games}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {player.win_rate ? (
+                              <span
+                                className={`${parseFloat(player.win_rate) > 0.25
+                                  ? "text-primary"
+                                  : parseFloat(player.win_rate) < 0.2
+                                    ? "text-[hsl(var(--knd-amber))]"
+                                    : "text-muted-foreground"}`}
+                              >
+                                {(parseFloat(player.win_rate) * 100).toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-[hsl(var(--knd-amber))]">
+                            {player.top_16_count}
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {notablePlayers.map((player) => (
-                          <TableRow
-                            key={player.player_name}
-                            className="border-[#2a2a2a] hover:bg-[#252525]"
-                          >
-                            <TableCell className="font-medium">
-                              {player.topdeck_id ? (
-                                <a
-                                  href={`https://topdeck.gg/profile/${player.topdeck_id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:text-[#c9a227] transition-colors"
-                                >
-                                  {player.player_name}
-                                  <span className="ml-1 text-[#a1a1aa] text-xs">↗</span>
-                                </a>
-                              ) : (
-                                player.player_name
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-[#c9a227]">
-                              {player.entries}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-[#a1a1aa]">
-                              {player.total_games}
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {player.win_rate ? (
-                                <span
-                                  style={{
-                                    color:
-                                      parseFloat(player.win_rate) > 0.25
-                                        ? "#22c55e"
-                                        : parseFloat(player.win_rate) < 0.2
-                                        ? "#ef4444"
-                                        : "#a1a1aa",
-                                  }}
-                                >
-                                  {(parseFloat(player.win_rate) * 100).toFixed(1)}%
-                                </span>
-                              ) : (
-                                <span className="text-[#a1a1aa]">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-[#f59e0b]">
-                              {player.top_16_count}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -552,15 +596,12 @@ export default async function CommanderDetailPage({
 
           {matchups.length > 0 && (
             <TabsContent value="matchups" className="mt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Tough Matchups - sorted by lowest win rate */}
-                <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#ef4444]">
-                  <CardHeader>
-                    <CardTitle className="text-[#ef4444]">
-                      Tough Matchups
-                    </CardTitle>
-                    <p className="text-[#a1a1aa] text-sm">
-                      Lowest win rate against these commanders
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <Card className="border-l-2 border-l-[hsl(var(--knd-amber))]">
+                  <CardHeader className="knd-panel-header">
+                    <CardTitle className="text-lg text-[hsl(var(--knd-amber))]">Tough Matchups</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Lowest win rate against these commanders.
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -577,20 +618,17 @@ export default async function CommanderDetailPage({
                           />
                         ))}
                       {matchups.filter((m) => m.is_statistically_significant).length === 0 && (
-                        <p className="text-[#a1a1aa] text-sm">Insufficient statistically significant data</p>
+                        <p className="text-sm text-muted-foreground">Insufficient statistically significant data.</p>
                       )}
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Favorable Matchups - sorted by highest win rate */}
-                <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#22c55e]">
-                  <CardHeader>
-                    <CardTitle className="text-[#22c55e]">
-                      Favorable Matchups
-                    </CardTitle>
-                    <p className="text-[#a1a1aa] text-sm">
-                      Highest win rate against these commanders
+                <Card className="border-l-2 border-l-[hsl(var(--knd-cyan))]">
+                  <CardHeader className="knd-panel-header">
+                    <CardTitle className="text-lg text-primary">Favorable Matchups</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Highest win rate against these commanders.
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -607,17 +645,17 @@ export default async function CommanderDetailPage({
                           />
                         ))}
                       {matchups.filter((m) => m.is_statistically_significant).length === 0 && (
-                        <p className="text-[#a1a1aa] text-sm">Insufficient statistically significant data</p>
+                        <p className="text-sm text-muted-foreground">Insufficient statistically significant data.</p>
                       )}
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-6">
+              <Card className="mt-6">
                 <CardContent className="pt-6">
-                  <p className="text-[#a1a1aa] text-sm">
-                    <strong className="text-[#fafafa]">Note:</strong> Matchup data shows win rates when
+                  <p className="text-sm text-muted-foreground">
+                    <strong className="text-foreground">Note:</strong> Matchup data shows win rates when
                     both commanders appear in the same pod. Requires minimum 20 encounters for statistical
                     significance. In 4-player pods, only direct wins against that opponent are counted.
                   </p>
@@ -627,98 +665,122 @@ export default async function CommanderDetailPage({
           )}
 
           <TabsContent value="cards" className="mt-6">
-            <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-              <CardHeader>
-                <CardTitle className="text-[#fafafa]">
-                  Card Frequencies for {commander.commander_name}
+            <Card>
+              <CardHeader className="knd-panel-header">
+                <CardTitle className="text-lg">
+                  Card Frequencies for {normalizeDisplayString(commander.commander_name)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
-                        <TableHead className="text-[#a1a1aa]">Card Name</TableHead>
-                        <TableHead className="text-[#a1a1aa]">Tier</TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">
-                          Inclusion
-                        </TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">
-                          Global Rate
-                        </TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">
-                          Synergy
-                        </TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">
-                          Win Rate Δ
-                        </TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">
-                          Decks
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cardReport.map((card) => {
-                        const perf = cardPerformanceMap.get(card.card_name);
-                        const winRateDelta = perf ? parseFloat(perf.win_rate_delta) * 100 : null;
-                        return (
-                          <TableRow
-                            key={card.card_name}
-                            className="border-[#2a2a2a] hover:bg-[#252525]"
-                          >
-                            <TableCell className="font-medium">
-                              <a
-                                href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:text-[#c9a227] transition-colors"
-                              >
-                                {card.card_name}
-                              </a>
-                            </TableCell>
-                            <TableCell>
-                              <TierBadge tier={card.tier} />
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-[#a1a1aa]">
-                              {(parseFloat(card.global_rate) * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              <SynergyBadge score={parseFloat(card.synergy_score)} />
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {winRateDelta !== null ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      <TableHead>Card Name</TableHead>
+                      <TableHead>Tier</TableHead>
+                      <TableHead className="text-right">Inclusion</TableHead>
+                      <TableHead className="text-right">Global Rate</TableHead>
+                      <TableHead className="text-right">Win Rate Delta</TableHead>
+                      <TableHead className="text-right">Decks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cardReport.map((card) => {
+                      const perf = cardPerformanceMap.get(card.card_name);
+                      const winRateDelta = perf ? parseFloat(perf.win_rate_delta) * 100 : null;
+                      return (
+                        <TableRow key={card.card_name} className="border-border/60">
+                          <TableCell className="font-medium">
+                            <a
+                              href={`https://scryfall.com/search?q=${encodeURIComponent(
+                                normalizeDisplayString(card.card_name)
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-foreground hover:text-primary"
+                            >
+                              {normalizeDisplayString(card.card_name)}
+                            </a>
+                          </TableCell>
+                          <TableCell>
+                            <TierBadge tier={card.tier} />
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">
+                            {(parseFloat(card.global_rate) * 100).toFixed(1)}%
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {winRateDelta !== null && perf ? (
+                              <span className="inline-flex items-center gap-2">
                                 <span
-                                  style={{
-                                    color: winRateDelta > 0 ? "#22c55e" : winRateDelta < 0 ? "#ef4444" : "#a1a1aa",
-                                  }}
+                                  className={`${winRateDelta > 0
+                                    ? "text-primary"
+                                    : winRateDelta < 0
+                                      ? "text-[hsl(var(--knd-amber))]"
+                                      : "text-muted-foreground"}`}
                                 >
                                   {winRateDelta > 0 ? "+" : ""}
                                   {winRateDelta.toFixed(1)}%
                                 </span>
-                              ) : (
-                                <span className="text-[#525252]">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-[#a1a1aa]">
-                              {card.deck_count}/{card.total_decks}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <p className="text-[#a1a1aa] text-sm mt-4 text-center">
-                    Showing all {cardReport.length} cards ·{" "}
-                    {cardPerformance.length} have win rate data (min 3 decks)
-                  </p>
-                </div>
+                                {(() => {
+                                  const stdDev = parseFloat(perf.std_win_rate) * 100;
+                                  const zScore = winRateDelta / (stdDev / Math.sqrt(perf.deck_count));
+                                  const pValue = 2 * (1 - normalCdf(Math.abs(zScore)));
+                                  return (
+                                    <span
+                                      title="Two-sided p-value (normal approximation). Highlighted when p < 0.05."
+                                      className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                                        pValue < 0.05
+                                          ? "border-primary/40 text-primary"
+                                          : "border-border/60 text-muted-foreground"
+                                      }`}
+                                    >
+                                      p={formatPValue(pValue)}
+                                    </span>
+                                  );
+                                })()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">
+                            {card.deck_count}/{card.total_decks}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  P-values are two-sided (normal approximation). Highlighted when p &lt; 0.05.
+                </p>
+                <p className="text-muted-foreground text-sm mt-4 text-center">
+                  Showing all {cardReport.length} cards · {cardPerformance.length} have win rate data (min 3 decks)
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        {recentFinishes.length > 0 && (
+          <Card className="mt-8">
+            <CardHeader className="knd-panel-header">
+              <CardTitle className="text-lg">Recent Top Finishes</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Most recent Top 16, Top Cut, and 1st-place finishes for this commander.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentFinishes.map((finish) => (
+                  <RecentFinishRow key={finish.id} finish={finish} commanderId={commander.commander_id} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
@@ -727,19 +789,23 @@ export default async function CommanderDetailPage({
 function StatCard({
   label,
   value,
-  color,
+  tone,
 }: {
   label: string;
   value: string;
-  color: string;
+  tone: "primary" | "amber" | "neutral";
 }) {
+  const toneMap: Record<typeof tone, string> = {
+    primary: "text-primary",
+    amber: "text-[hsl(var(--knd-amber))]",
+    neutral: "text-muted-foreground",
+  };
+
   return (
-    <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+    <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-[#a1a1aa] text-xs">{label}</p>
-        <p className="text-xl font-bold font-mono" style={{ color }}>
-          {value}
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+        <p className={`text-xl font-semibold ${toneMap[tone]}`}>{value}</p>
       </CardContent>
     </Card>
   );
@@ -747,11 +813,11 @@ function StatCard({
 
 function ColorBadge({ color, size = "sm" }: { color: string; size?: "sm" | "lg" }) {
   const colors: Record<string, string> = {
-    W: "bg-amber-100 text-amber-900",
-    U: "bg-blue-500 text-white",
-    B: "bg-purple-900 text-purple-100",
-    R: "bg-red-500 text-white",
-    G: "bg-green-600 text-white",
+    W: "bg-amber-200/80 text-amber-950",
+    U: "bg-sky-500/90 text-white",
+    B: "bg-purple-900/90 text-purple-100",
+    R: "bg-red-500/90 text-white",
+    G: "bg-emerald-500/90 text-white",
   };
 
   const sizeClass = size === "lg" ? "w-8 h-8 text-sm" : "w-5 h-5 text-xs";
@@ -759,7 +825,7 @@ function ColorBadge({ color, size = "sm" }: { color: string; size?: "sm" | "lg" 
   return (
     <span
       className={`${sizeClass} rounded-full flex items-center justify-center font-bold ${
-        colors[color] || "bg-gray-500"
+        colors[color] || "bg-slate-500 text-white"
       }`}
     >
       {color}
@@ -769,33 +835,20 @@ function ColorBadge({ color, size = "sm" }: { color: string; size?: "sm" | "lg" 
 
 function TierBadge({ tier }: { tier: string }) {
   const tierColors: Record<string, string> = {
-    core: "bg-green-500/20 text-green-400 border-green-500/30",
-    essential: "bg-lime-500/20 text-lime-400 border-lime-500/30",
-    common: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-    flex: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-    spice: "bg-red-500/20 text-red-400 border-red-500/30",
+    core: "bg-[hsl(var(--knd-cyan))]/15 text-primary border-primary/30",
+    essential: "bg-[hsl(var(--knd-cyan))]/10 text-primary border-primary/20",
+    common: "bg-[hsl(var(--knd-amber))]/15 text-[hsl(var(--knd-amber))] border-[hsl(var(--knd-amber))]/30",
+    flex: "bg-muted/40 text-muted-foreground border-border/60",
+    spice: "bg-muted/30 text-muted-foreground border-border/40",
   };
 
   return (
     <Badge
       variant="outline"
-      className={tierColors[tier] || "bg-gray-500/20 text-gray-400"}
+      className={tierColors[tier] || "bg-muted/30 text-muted-foreground border-border/40"}
     >
       {tier}
     </Badge>
-  );
-}
-
-function SynergyBadge({ score }: { score: number }) {
-  const percentage = score * 100;
-  const isPositive = percentage > 0;
-  const color = isPositive ? "#22c55e" : percentage < -10 ? "#ef4444" : "#a1a1aa";
-
-  return (
-    <span style={{ color }}>
-      {isPositive ? "+" : ""}
-      {percentage.toFixed(1)}%
-    </span>
   );
 }
 
@@ -803,22 +856,28 @@ function TierRow({
   tier,
   count,
   description,
-  color,
+  tone,
+  muted = false,
 }: {
   tier: string;
   count: number;
   description: string;
-  color: string;
+  tone: "primary" | "amber" | "neutral";
+  muted?: boolean;
 }) {
+  const toneMap: Record<typeof tone, string> = {
+    primary: "text-primary",
+    amber: "text-[hsl(var(--knd-amber))]",
+    neutral: "text-muted-foreground",
+  };
+
   return (
     <div className="flex justify-between items-center">
       <div>
-        <span className="font-medium" style={{ color }}>
-          {tier}
-        </span>
-        <span className="text-[#a1a1aa] text-sm ml-2">({description})</span>
+        <span className={`font-medium ${toneMap[tone]}`}>{tier}</span>
+        <span className="text-muted-foreground text-sm ml-2">({description})</span>
       </div>
-      <span className="font-mono font-bold" style={{ color }}>
+      <span className={`font-mono font-semibold ${muted ? "text-muted-foreground" : toneMap[tone]}`}>
         {count}
       </span>
     </div>
@@ -837,46 +896,51 @@ function PerformanceCardRow({
   const winRate = parseFloat(card.avg_win_rate) * 100;
   const inclusionRate = parseFloat(card.inclusion_rate) * 100;
 
-  // Calculate if statistically significant (rough heuristic: delta > 2*std/sqrt(n))
-  const isSignificant = Math.abs(delta) > (stdDev / Math.sqrt(card.deck_count)) * 1.96;
+  const deltaClass = isNegative ? "text-[hsl(var(--knd-amber))]" : "text-primary";
 
   return (
-    <div className="flex items-center justify-between p-2 rounded bg-[#0a0a0a]">
+    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-2">
       <div className="flex-1 min-w-0">
         <a
-          href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
+          href={`https://scryfall.com/search?q=${encodeURIComponent(
+            normalizeDisplayString(card.card_name)
+          )}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium hover:text-[#c9a227] transition-colors truncate block"
+          className="text-foreground hover:text-primary truncate block"
         >
-          {card.card_name}
+          {normalizeDisplayString(card.card_name)}
         </a>
-        <p className="text-xs text-[#a1a1aa]">
+        <p className="text-xs text-muted-foreground">
           {card.deck_count} decks · {inclusionRate.toFixed(0)}% inclusion
         </p>
       </div>
       <div className="text-right ml-4">
         <div className="flex items-center gap-2 justify-end">
-          <span
-            className="font-mono font-bold"
-            style={{ color: isNegative ? "#ef4444" : "#22c55e" }}
-          >
+          <span className={`font-mono font-semibold ${deltaClass}`}>
             {delta > 0 ? "+" : ""}
             {delta.toFixed(1)}%
           </span>
-          {isSignificant && (
-            <span
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{
-                backgroundColor: isNegative ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.2)",
-                color: isNegative ? "#ef4444" : "#22c55e",
-              }}
-            >
-              sig
-            </span>
-          )}
+          <span
+            title="Two-sided p-value (normal approximation). Highlighted when p < 0.05."
+            className={`rounded-full border px-2 py-0.5 text-[10px] ${
+              (() => {
+                const zScore = delta / (stdDev / Math.sqrt(card.deck_count));
+                const pValue = 2 * (1 - normalCdf(Math.abs(zScore)));
+                return pValue < 0.05
+                  ? "border-primary/40 text-primary"
+                  : "border-border/60 text-muted-foreground";
+              })()
+            }`}
+          >
+            {(() => {
+              const zScore = delta / (stdDev / Math.sqrt(card.deck_count));
+              const pValue = 2 * (1 - normalCdf(Math.abs(zScore)));
+              return `p=${formatPValue(pValue)}`;
+            })()}
+          </span>
         </div>
-        <p className="text-xs text-[#a1a1aa]">
+        <p className="text-xs text-muted-foreground">
           {winRate.toFixed(1)}% WR · ±{stdDev.toFixed(1)}%
         </p>
       </div>
@@ -892,34 +956,110 @@ function MatchupRow({
   type: "favorable" | "tough";
 }) {
   const winRate = toNumber(matchup.win_rate) * 100;
-  const lossRate = toNumber(matchup.loss_rate) * 100;
-  const drawRate = toNumber(matchup.draw_rate) * 100;
   const vsExpected = toNumber(matchup.win_rate_vs_expected) * 100;
-  const color = type === "favorable" ? "#22c55e" : "#ef4444";
+  const colorClass = type === "favorable" ? "text-primary" : "text-[hsl(var(--knd-amber))]";
 
   return (
-    <div className="flex items-center justify-between p-2 rounded bg-[#0a0a0a]">
+    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-2">
       <div className="flex-1 min-w-0">
         <Link
           href={`/commanders/${matchup.opponent_commander_id}`}
-          className="font-medium hover:text-[#c9a227] transition-colors truncate block"
+          className="text-foreground hover:text-primary truncate block"
         >
-          {matchup.opponent_commander_name}
+          {normalizeDisplayString(matchup.opponent_commander_name)}
         </Link>
-        <p className="text-xs text-[#a1a1aa]">
+        <p className="text-xs text-muted-foreground">
           {matchup.games_played} games · {matchup.wins}W/{matchup.losses}L/{matchup.draws}D
           {matchup.is_statistically_significant && (
-            <span className="ml-1 text-[#c9a227]">★</span>
+            <span className="ml-1 text-[hsl(var(--knd-amber))]">★</span>
           )}
         </p>
       </div>
       <div className="text-right ml-4">
-        <span className="font-mono font-bold" style={{ color }}>
+        <span className={`font-mono font-semibold ${colorClass}`}>
           {winRate.toFixed(1)}% WR
         </span>
-        <p className="text-xs text-[#a1a1aa]">
+        <p className="text-xs text-muted-foreground">
           {vsExpected > 0 ? "+" : ""}{vsExpected.toFixed(1)}% vs expected
         </p>
+      </div>
+    </div>
+  );
+}
+
+function RecentFinishRow({
+  finish,
+  commanderId,
+}: {
+  finish: RecentFinish;
+  commanderId: string;
+}) {
+  const deckHost = (() => {
+    if (!finish.decklist_url) return null;
+    const url = finish.decklist_url.toLowerCase();
+    if (url.includes("moxfield.com")) return "Moxfield";
+    if (url.includes("topdeck.gg")) return "TopDeck";
+    if (url.includes("archidekt.com")) return "Archidekt";
+    return "Decklist";
+  })();
+
+  const tournamentUrl = finish.tournament.topdeck_tid
+    ? `https://topdeck.gg/event/${finish.tournament.topdeck_tid}`
+    : null;
+
+  const dateLabel = new Date(finish.tournament.start_date).toLocaleDateString(
+    "en-US",
+    { month: "short", day: "numeric", year: "numeric" }
+  );
+
+  let medalLabel = "Top 16";
+  let medalClass = "border-[hsl(var(--knd-amber))]/40 text-[hsl(var(--knd-amber))]";
+  if (finish.final_standing === 1) {
+    medalLabel = "1st";
+    medalClass = "border-[hsl(var(--knd-amber))]/60 text-[hsl(var(--knd-amber))]";
+  } else if (finish.made_top_cut) {
+    medalLabel = "Top Cut";
+    medalClass = "border-primary/40 text-primary";
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-full border px-2 py-0.5 text-xs ${medalClass}`}>
+            {medalLabel}
+          </span>
+          {tournamentUrl ? (
+            <a
+              href={tournamentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-foreground truncate hover:text-primary"
+            >
+              {normalizeDisplayString(finish.tournament.name)}
+            </a>
+          ) : (
+            <p className="text-sm font-medium text-foreground truncate">
+              {normalizeDisplayString(finish.tournament.name)}
+            </p>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {dateLabel} · {finish.tournament.player_count} players
+          {finish.final_standing ? ` · Standing ${finish.final_standing}` : ""}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        {finish.decklist_url ? (
+          <a
+            href={finish.decklist_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-border/60 px-3 py-1 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          >
+            {deckHost || "Decklist"}
+          </a>
+        ) : null}
       </div>
     </div>
   );
