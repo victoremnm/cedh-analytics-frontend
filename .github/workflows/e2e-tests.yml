@@ -17,6 +17,18 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ] || [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Missing required secrets. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to repository secrets."
+            echo ""
+            echo "To add secrets:"
+            echo "1. Go to https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "2. Click 'New repository secret'"
+            echo "3. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
