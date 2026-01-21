@@ -31,11 +31,12 @@ export default defineConfig({
     },
   ],
 
-  // Start local dev server if no BASE_URL provided
+  // Start local server if no BASE_URL provided
+  // In CI, use production build (npm start); locally use dev server
   webServer: process.env.BASE_URL
     ? undefined
     : {
-        command: "npm run dev",
+        command: process.env.CI ? "npm run start" : "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
