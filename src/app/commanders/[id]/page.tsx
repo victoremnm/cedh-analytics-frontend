@@ -188,6 +188,11 @@ export default async function CommanderDetailPage({
     .sort((a, b) => parseFloat(a.win_rate_delta) - parseFloat(b.win_rate_delta))
     .slice(0, 20);
 
+  // Create a map of card performance data for quick lookup
+  const cardPerformanceMap = new Map(
+    cardPerformance.map((cp) => [cp.card_name, cp])
+  );
+
   // Group cards by tier
   const cardsByTier = {
     core: cardReport.filter((c) => c.tier === "core"),
@@ -645,47 +650,69 @@ export default async function CommanderDetailPage({
                           Synergy
                         </TableHead>
                         <TableHead className="text-[#a1a1aa] text-right">
+                          Win Rate Δ
+                        </TableHead>
+                        <TableHead className="text-[#a1a1aa] text-right">
                           Decks
                         </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cardReport.map((card) => (
-                        <TableRow
-                          key={card.card_name}
-                          className="border-[#2a2a2a] hover:bg-[#252525]"
-                        >
-                          <TableCell className="font-medium">
-                            <a
-                              href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:text-[#c9a227] transition-colors"
-                            >
-                              {card.card_name}
-                            </a>
-                          </TableCell>
-                          <TableCell>
-                            <TierBadge tier={card.tier} />
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-[#a1a1aa]">
-                            {(parseFloat(card.global_rate) * 100).toFixed(1)}%
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            <SynergyBadge score={parseFloat(card.synergy_score)} />
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-[#a1a1aa]">
-                            {card.deck_count}/{card.total_decks}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {cardReport.map((card) => {
+                        const perf = cardPerformanceMap.get(card.card_name);
+                        const winRateDelta = perf ? parseFloat(perf.win_rate_delta) * 100 : null;
+                        return (
+                          <TableRow
+                            key={card.card_name}
+                            className="border-[#2a2a2a] hover:bg-[#252525]"
+                          >
+                            <TableCell className="font-medium">
+                              <a
+                                href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-[#c9a227] transition-colors"
+                              >
+                                {card.card_name}
+                              </a>
+                            </TableCell>
+                            <TableCell>
+                              <TierBadge tier={card.tier} />
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-[#a1a1aa]">
+                              {(parseFloat(card.global_rate) * 100).toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              <SynergyBadge score={parseFloat(card.synergy_score)} />
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {winRateDelta !== null ? (
+                                <span
+                                  style={{
+                                    color: winRateDelta > 0 ? "#22c55e" : winRateDelta < 0 ? "#ef4444" : "#a1a1aa",
+                                  }}
+                                >
+                                  {winRateDelta > 0 ? "+" : ""}
+                                  {winRateDelta.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span className="text-[#525252]">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-[#a1a1aa]">
+                              {card.deck_count}/{card.total_decks}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   <p className="text-[#a1a1aa] text-sm mt-4 text-center">
-                    Showing all {cardReport.length} cards
+                    Showing all {cardReport.length} cards ·{" "}
+                    {cardPerformance.length} have win rate data (min 3 decks)
                   </p>
                 </div>
               </CardContent>
