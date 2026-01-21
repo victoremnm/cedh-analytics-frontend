@@ -182,11 +182,11 @@ export default async function CommanderDetailPage({
   // Get top performing and underperforming cards
   const topPerformingCards = cardPerformance
     .filter((c) => parseFloat(c.win_rate_delta) > 0)
-    .slice(0, 10);
+    .slice(0, 20);
   const underperformingCards = cardPerformance
     .filter((c) => parseFloat(c.win_rate_delta) < 0)
     .sort((a, b) => parseFloat(a.win_rate_delta) - parseFloat(b.win_rate_delta))
-    .slice(0, 10);
+    .slice(0, 20);
 
   // Group cards by tier
   const cardsByTier = {
@@ -563,7 +563,7 @@ export default async function CommanderDetailPage({
                       {matchups
                         .filter((m) => m.is_statistically_significant)
                         .sort((a, b) => toNumber(a.win_rate) - toNumber(b.win_rate))
-                        .slice(0, 10)
+                        .slice(0, 20)
                         .map((matchup) => (
                           <MatchupRow
                             key={matchup.opponent_commander_id}
@@ -593,7 +593,7 @@ export default async function CommanderDetailPage({
                       {matchups
                         .filter((m) => m.is_statistically_significant)
                         .sort((a, b) => toNumber(b.win_rate) - toNumber(a.win_rate))
-                        .slice(0, 10)
+                        .slice(0, 20)
                         .map((matchup) => (
                           <MatchupRow
                             key={matchup.opponent_commander_id}
@@ -650,13 +650,20 @@ export default async function CommanderDetailPage({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cardReport.slice(0, 100).map((card) => (
+                      {cardReport.map((card) => (
                         <TableRow
                           key={card.card_name}
                           className="border-[#2a2a2a] hover:bg-[#252525]"
                         >
                           <TableCell className="font-medium">
-                            {card.card_name}
+                            <a
+                              href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-[#c9a227] transition-colors"
+                            >
+                              {card.card_name}
+                            </a>
                           </TableCell>
                           <TableCell>
                             <TierBadge tier={card.tier} />
@@ -677,11 +684,9 @@ export default async function CommanderDetailPage({
                       ))}
                     </TableBody>
                   </Table>
-                  {cardReport.length > 100 && (
-                    <p className="text-[#a1a1aa] text-sm mt-4 text-center">
-                      Showing 100 of {cardReport.length} cards
-                    </p>
-                  )}
+                  <p className="text-[#a1a1aa] text-sm mt-4 text-center">
+                    Showing all {cardReport.length} cards
+                  </p>
                 </div>
               </CardContent>
             </Card>
