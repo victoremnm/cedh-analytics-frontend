@@ -117,7 +117,6 @@ export default async function CommandersPage() {
                   <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
                     <TableHead className="text-[#a1a1aa]">Rank</TableHead>
                     <TableHead className="text-[#a1a1aa]">Commander</TableHead>
-                    <TableHead className="text-[#a1a1aa]">Colors</TableHead>
                     <TableHead className="text-[#a1a1aa] text-right">
                       Entries
                     </TableHead>
@@ -158,13 +157,6 @@ export default async function CommandersPage() {
                             </span>
                           )}
                         </Link>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {commander.color_identity?.map((color) => (
-                            <ColorBadge key={color} color={color} />
-                          )) || <span className="text-[#a1a1aa]">-</span>}
-                        </div>
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {commander.total_entries.toLocaleString()}
@@ -215,26 +207,6 @@ function StatCard({
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-function ColorBadge({ color }: { color: string }) {
-  const colors: Record<string, string> = {
-    W: "bg-amber-100 text-amber-900",
-    U: "bg-blue-500 text-white",
-    B: "bg-purple-900 text-purple-100",
-    R: "bg-red-500 text-white",
-    G: "bg-green-600 text-white",
-  };
-
-  return (
-    <span
-      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-        colors[color] || "bg-gray-500"
-      }`}
-    >
-      {color}
-    </span>
   );
 }
 

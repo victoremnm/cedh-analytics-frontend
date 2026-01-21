@@ -5,18 +5,33 @@ import Link from "next/link";
 // Force dynamic rendering - fetch fresh data on each request
 export const dynamic = "force-dynamic";
 
+interface TopCommander {
+  commander_id: string;
+  commander_name: string;
+  total_entries: number;
+  avg_win_rate: number;
+  conversion_rate_top_16: number;
+  color_identity: string[] | null;
+}
+
 async function getStats() {
   try {
-    const [tournamentResult, commanderResult, topCommandersResult] =
+    const [tournamentResult, commanderResult, topCommandersResult, topWinRateResult] =
       await Promise.all([
         supabase.from("tournaments").select("*", { count: "exact", head: true }),
         supabase.from("commanders").select("*", { count: "exact", head: true }),
         supabase
           .from("commander_stats")
-          .select("commander_name, total_entries, avg_win_rate, color_identity")
-          .gt("total_entries", 10)
+          .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
+          .gt("total_entries", 20)
           .order("total_entries", { ascending: false })
-          .limit(5),
+          .limit(10),
+        supabase
+          .from("commander_stats")
+          .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
+          .gt("total_entries", 30)
+          .order("avg_win_rate", { ascending: false })
+          .limit(10),
       ]);
 
     // Log errors for debugging
@@ -33,7 +48,8 @@ async function getStats() {
     return {
       tournamentCount: tournamentResult.count ?? 0,
       commanderCount: commanderResult.count ?? 0,
-      topCommanders: topCommandersResult.data ?? [],
+      topCommanders: (topCommandersResult.data ?? []) as TopCommander[],
+      topWinRate: (topWinRateResult.data ?? []) as TopCommander[],
     };
   } catch (error) {
     console.error("Failed to fetch stats:", error);
@@ -41,12 +57,13 @@ async function getStats() {
       tournamentCount: 0,
       commanderCount: 0,
       topCommanders: [],
+      topWinRate: [],
     };
   }
 }
 
 export default async function Home() {
-  const { tournamentCount, commanderCount, topCommanders } = await getStats();
+  const { tournamentCount, commanderCount, topCommanders, topWinRate } = await getStats();
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
@@ -102,57 +119,67 @@ export default async function Home() {
           </Card>
         </div>
 
-        {/* Top Commanders Preview */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-16">
-          <CardHeader>
-            <CardTitle className="text-[#fafafa]">
-              Top Commanders by Entries
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topCommanders.map(
-                (
-                  commander: {
-                    commander_name: string;
-                    total_entries: number;
-                    avg_win_rate: number;
-                    color_identity: string[];
-                  },
-                  index: number
-                ) => (
-                  <div
-                    key={commander.commander_name}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a]"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-[#a1a1aa] w-6">#{index + 1}</span>
-                      <div>
-                        <p className="font-medium">{commander.commander_name}</p>
-                        <div className="flex gap-1 mt-1">
-                          {commander.color_identity?.map((color: string) => (
-                            <ColorBadge key={color} color={color} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[#c9a227] font-mono">
-                        {commander.total_entries} entries
-                      </p>
-                      <p className="text-sm text-[#a1a1aa]">
-                        {(commander.avg_win_rate * 100).toFixed(1)}% win rate
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Commander Rankings - Two Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-16">
+          {/* Most Popular */}
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[#fafafa]">Most Popular</CardTitle>
+                <p className="text-sm text-[#a1a1aa] mt-1">By tournament entries</p>
+              </div>
+              <Link
+                href="/commanders"
+                className="text-sm text-[#c9a227] hover:text-[#d4af37] transition-colors"
+              >
+                View All →
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {topCommanders.map((commander, index) => (
+                  <CommanderRow
+                    key={commander.commander_id}
+                    commander={commander}
+                    rank={index + 1}
+                    metric="entries"
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Highest Win Rate */}
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[#fafafa]">Highest Win Rate</CardTitle>
+                <p className="text-sm text-[#a1a1aa] mt-1">30+ entries minimum</p>
+              </div>
+              <Link
+                href="/commanders"
+                className="text-sm text-[#22c55e] hover:text-[#4ade80] transition-colors"
+              >
+                View All →
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {topWinRate.map((commander, index) => (
+                  <CommanderRow
+                    key={commander.commander_id}
+                    commander={commander}
+                    rank={index + 1}
+                    metric="winrate"
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
           <FeatureCard
             href="/commanders"
             title="Commander Rankings"
@@ -177,9 +204,75 @@ export default async function Home() {
             description="Find overrated and underrated cards"
             color="#ef4444"
           />
+          <FeatureCard
+            href="/survival"
+            title="Survival Analysis"
+            description="Track survival probability through tournament rounds"
+            color="#06b6d4"
+          />
+          <FeatureCard
+            href="/about"
+            title="Methodology"
+            description="Statistics, formulas, and how it all works"
+            color="#a1a1aa"
+          />
         </div>
       </main>
     </div>
+  );
+}
+
+function CommanderRow({
+  commander,
+  rank,
+  metric,
+}: {
+  commander: TopCommander;
+  rank: number;
+  metric: "entries" | "winrate";
+}) {
+  const winRate = (commander.avg_win_rate * 100).toFixed(1);
+  const isAboveExpected = commander.avg_win_rate > 0.25;
+
+  return (
+    <Link
+      href={`/commanders/${commander.commander_id}`}
+      className="flex items-center justify-between p-3 rounded-lg bg-[#0a0a0a] hover:bg-[#151515] transition-colors group"
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-[#a1a1aa] w-6 font-mono text-sm">#{rank}</span>
+        <div className="flex gap-1">
+          {commander.color_identity?.filter(Boolean).map((color: string) => (
+            <ColorBadge key={color} color={color} />
+          ))}
+        </div>
+        <div className="min-w-0">
+          <p className="font-medium truncate group-hover:text-[#c9a227] transition-colors">
+            {commander.commander_name}
+          </p>
+        </div>
+      </div>
+      <div className="text-right shrink-0 ml-4">
+        {metric === "entries" ? (
+          <>
+            <p className="text-[#c9a227] font-mono font-bold">
+              {commander.total_entries}
+            </p>
+            <p className="text-xs text-[#a1a1aa]">entries</p>
+          </>
+        ) : (
+          <>
+            <p
+              className="font-mono font-bold"
+              style={{ color: isAboveExpected ? "#22c55e" : "#a1a1aa" }}
+            >
+              {winRate}%
+            </p>
+            <p className="text-xs text-[#a1a1aa]">{commander.total_entries} entries</p>
+          </>
+        )}
+      </div>
+    </Link>
   );
 }
 

@@ -12,24 +12,60 @@ interface SeatPositionStat {
   losses: number;
   draws: number;
   win_rate: string;
+  draw_rate?: number;
+  win_plus_draw_rate?: number;
+}
+
+interface CommanderSeatStat {
+  commander_id: string;
+  commander_name: string;
+  seat_position: number;
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: string;
+  draw_rate: string;
+  win_plus_draw_rate: string;
 }
 
 export default function TurnOrderPage() {
   const [stats, setStats] = useState<SeatPositionStat[]>([]);
+  const [commanderStats, setCommanderStats] = useState<CommanderSeatStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchStats() {
-      const { data, error } = await supabase
-        .from("seat_position_stats")
-        .select("*")
-        .order("seat_position");
+      const [globalResult, commanderResult] = await Promise.all([
+        supabase
+          .from("seat_position_stats")
+          .select("*")
+          .order("seat_position"),
+        supabase
+          .from("commander_seat_stats")
+          .select("*")
+          .gte("games", 20)
+          .order("games", { ascending: false }),
+      ]);
 
-      if (error) {
-        console.error("Error fetching seat stats:", error);
+      if (globalResult.error) {
+        console.error("Error fetching seat stats:", globalResult.error);
       } else {
-        setStats(data || []);
+        const enrichedStats = (globalResult.data || []).map((stat) => ({
+          ...stat,
+          draw_rate: stat.draws / stat.total_games,
+          win_plus_draw_rate: (stat.wins + stat.draws) / stat.total_games,
+        }));
+        setStats(enrichedStats);
       }
+
+      if (commanderResult.error) {
+        console.error("Error fetching commander seat stats:", commanderResult.error);
+      } else {
+        setCommanderStats(commanderResult.data || []);
+      }
+
       setLoading(false);
     }
     fetchStats();
@@ -126,6 +162,9 @@ export default function TurnOrderPage() {
                         >
                           {delta > 0 ? "+" : ""}
                           {delta.toFixed(1)}% vs expected
+                        </p>
+                        <p className="text-xs text-[#a1a1aa] font-mono mt-1">
+                          Draw: {((stat.draw_rate || 0) * 100).toFixed(1)}% · W+D: {((stat.win_plus_draw_rate || 0) * 100).toFixed(1)}%
                         </p>
                       </div>
                     </div>
@@ -264,6 +303,8 @@ export default function TurnOrderPage() {
                     <th className="text-right py-2 text-[#a1a1aa]">Losses</th>
                     <th className="text-right py-2 text-[#a1a1aa]">Draws</th>
                     <th className="text-right py-2 text-[#a1a1aa]">Win Rate</th>
+                    <th className="text-right py-2 text-[#a1a1aa]">Draw Rate</th>
+                    <th className="text-right py-2 text-[#a1a1aa]">Win+Draw</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,11 +322,17 @@ export default function TurnOrderPage() {
                       <td className="py-2 text-right font-mono text-[#ef4444]">
                         {stat.losses.toLocaleString()}
                       </td>
-                      <td className="py-2 text-right font-mono text-[#a1a1aa]">
+                      <td className="py-2 text-right font-mono text-[#f59e0b]">
                         {stat.draws.toLocaleString()}
                       </td>
                       <td className="py-2 text-right font-mono font-bold" style={{ color: getSeatColor(stat.seat_position) }}>
                         {(parseFloat(stat.win_rate) * 100).toFixed(2)}%
+                      </td>
+                      <td className="py-2 text-right font-mono text-[#f59e0b]">
+                        {((stat.draw_rate || 0) * 100).toFixed(2)}%
+                      </td>
+                      <td className="py-2 text-right font-mono text-[#8b5cf6]">
+                        {((stat.win_plus_draw_rate || 0) * 100).toFixed(2)}%
                       </td>
                     </tr>
                   ))}
@@ -294,6 +341,104 @@ export default function TurnOrderPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Commander Seat Position Breakdown */}
+        {commanderStats.length > 0 && (
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-6">
+            <CardHeader>
+              <CardTitle className="text-[#fafafa]">Commander Performance by Seat</CardTitle>
+              <p className="text-[#a1a1aa] text-sm">
+                Click a seat to see which commanders perform best from that position
+              </p>
+            </CardHeader>
+            <CardContent>
+              {/* Seat Selector */}
+              <div className="flex gap-2 mb-6">
+                {[0, 1, 2, 3].map((seat) => (
+                  <button
+                    key={seat}
+                    onClick={() => setSelectedSeat(selectedSeat === seat ? null : seat)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      selectedSeat === seat
+                        ? "text-[#0a0a0a]"
+                        : "bg-[#2a2a2a] text-[#fafafa] hover:bg-[#3a3a3a]"
+                    }`}
+                    style={{
+                      backgroundColor: selectedSeat === seat ? getSeatColor(seat) : undefined,
+                    }}
+                  >
+                    Seat {seat + 1}
+                  </button>
+                ))}
+              </div>
+
+              {/* Commander Table for Selected Seat */}
+              {selectedSeat !== null && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#2a2a2a]">
+                        <th className="text-left py-2 text-[#a1a1aa]">Commander</th>
+                        <th className="text-right py-2 text-[#a1a1aa]">Games</th>
+                        <th className="text-right py-2 text-[#a1a1aa]">Win Rate</th>
+                        <th className="text-right py-2 text-[#a1a1aa]">Draw Rate</th>
+                        <th className="text-right py-2 text-[#a1a1aa]">Win+Draw</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commanderStats
+                        .filter((c) => c.seat_position === selectedSeat)
+                        .slice(0, 15)
+                        .map((commander) => {
+                          const winRate = parseFloat(commander.win_rate) * 100;
+                          const drawRate = parseFloat(commander.draw_rate) * 100;
+                          const winPlusDrawRate = parseFloat(commander.win_plus_draw_rate) * 100;
+                          const isAboveExpected = winRate > 25;
+
+                          return (
+                            <tr key={commander.commander_id} className="border-b border-[#2a2a2a]">
+                              <td className="py-2">
+                                <Link
+                                  href={`/commanders/${commander.commander_id}`}
+                                  className="hover:text-[#c9a227] transition-colors"
+                                >
+                                  {commander.commander_name}
+                                </Link>
+                              </td>
+                              <td className="py-2 text-right font-mono text-[#a1a1aa]">
+                                {commander.games}
+                              </td>
+                              <td
+                                className="py-2 text-right font-mono font-bold"
+                                style={{ color: isAboveExpected ? "#22c55e" : "#ef4444" }}
+                              >
+                                {winRate.toFixed(1)}%
+                              </td>
+                              <td className="py-2 text-right font-mono text-[#f59e0b]">
+                                {drawRate.toFixed(1)}%
+                              </td>
+                              <td className="py-2 text-right font-mono text-[#8b5cf6]">
+                                {winPlusDrawRate.toFixed(1)}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  <p className="text-[#a1a1aa] text-xs mt-4">
+                    Showing commanders with 20+ games from Seat {selectedSeat + 1}
+                  </p>
+                </div>
+              )}
+
+              {selectedSeat === null && (
+                <p className="text-[#a1a1aa] text-center py-8">
+                  Select a seat position above to see commander performance breakdown
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

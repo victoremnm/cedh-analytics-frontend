@@ -1,16 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
-
-export const dynamic = "force-dynamic";
 
 interface TrapCard {
   card_name: string;
@@ -22,6 +16,7 @@ interface TrapCard {
   top_16_rate: string;
   commander_count: number;
   trap_score: string;
+  top_commanders?: CommanderUsage[];
 }
 
 interface SpiceCard {
@@ -33,41 +28,147 @@ interface SpiceCard {
   win_rate_delta: string;
   top_16_rate: string;
   commander_count: number;
+  top_commanders?: CommanderUsage[];
 }
 
-async function getTrapCards() {
-  const { data, error } = await supabase
-    .from("trap_cards_report")
-    .select("*")
-    .order("trap_score", { ascending: false })
-    .limit(50);
+interface CommanderUsage {
+  commander_id: string;
+  commander: string;
+  deck_count: number;
+  inclusion_rate: string;
+}
 
-  if (error) {
-    console.error("Error fetching trap cards:", error);
-    return [];
+interface Commander {
+  commander_id: string;
+  commander_name: string;
+  total_entries: number;
+}
+
+const ITEMS_PER_PAGE = 20;
+
+export default function TrapSpicePage() {
+  const [commanders, setCommanders] = useState<Commander[]>([]);
+  const [selectedCommander, setSelectedCommander] = useState<string>("");
+  const [trapCards, setTrapCards] = useState<TrapCard[]>([]);
+  const [spiceCards, setSpiceCards] = useState<SpiceCard[]>([]);
+  const [trapPage, setTrapPage] = useState(1);
+  const [spicePage, setSpicePage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch commanders for dropdown
+  useEffect(() => {
+    async function fetchCommanders() {
+      const { data, error } = await supabase
+        .from("commander_stats")
+        .select("commander_id, commander_name, total_entries")
+        .gt("total_entries", 10)
+        .order("total_entries", { ascending: false });
+
+      if (!error && data) {
+        setCommanders(data);
+      }
+    }
+    fetchCommanders();
+  }, []);
+
+  // Fetch trap and spice cards
+  useEffect(() => {
+    async function fetchCards() {
+      setLoading(true);
+      setTrapPage(1);
+      setSpicePage(1);
+
+      // Fetch trap cards
+      const { data: trapData } = await supabase
+        .from("trap_cards_report")
+        .select("*")
+        .order("trap_score", { ascending: false })
+        .limit(100);
+
+      // Fetch spice cards
+      const { data: spiceData } = await supabase
+        .from("spice_cards_report")
+        .select("*")
+        .order("win_rate_delta", { ascending: false })
+        .limit(100);
+
+      const allCardNames = [
+        ...(trapData || []).map((c) => c.card_name),
+        ...(spiceData || []).map((c) => c.card_name),
+      ];
+
+      // Fetch commander usage for all cards
+      const commanderUsage = await getCommanderUsageForCards(allCardNames);
+
+      const trapsWithCommanders = (trapData || []).map((card) => ({
+        ...card,
+        top_commanders: commanderUsage.get(card.card_name) || [],
+      }));
+
+      const spicesWithCommanders = (spiceData || []).map((card) => ({
+        ...card,
+        top_commanders: commanderUsage.get(card.card_name) || [],
+      }));
+
+      setTrapCards(trapsWithCommanders);
+      setSpiceCards(spicesWithCommanders);
+      setLoading(false);
+    }
+
+    fetchCards();
+  }, []);
+
+  async function getCommanderUsageForCards(
+    cardNames: string[]
+  ): Promise<Map<string, CommanderUsage[]>> {
+    if (cardNames.length === 0) return new Map();
+
+    const { data, error } = await supabase
+      .from("card_frequencies_by_commander")
+      .select("card_name, commander_id, commander, deck_count, inclusion_rate")
+      .in("card_name", cardNames)
+      .order("deck_count", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching commander usage:", error);
+      return new Map();
+    }
+
+    const usageMap = new Map<string, CommanderUsage[]>();
+    for (const row of data || []) {
+      const existing = usageMap.get(row.card_name) || [];
+      if (existing.length < 10) {
+        existing.push({
+          commander_id: row.commander_id,
+          commander: row.commander,
+          deck_count: row.deck_count,
+          inclusion_rate: row.inclusion_rate,
+        });
+        usageMap.set(row.card_name, existing);
+      }
+    }
+    return usageMap;
   }
-  return data as TrapCard[];
-}
 
-async function getSpiceCards() {
-  const { data, error } = await supabase
-    .from("spice_cards_report")
-    .select("*")
-    .order("win_rate_delta", { ascending: false })
-    .limit(50);
+  // Filter cards by selected commander
+  const filteredTrapCards = selectedCommander
+    ? trapCards.filter((card) =>
+        card.top_commanders?.some((c) => c.commander_id === selectedCommander)
+      )
+    : trapCards;
 
-  if (error) {
-    console.error("Error fetching spice cards:", error);
-    return [];
-  }
-  return data as SpiceCard[];
-}
+  const filteredSpiceCards = selectedCommander
+    ? spiceCards.filter((card) =>
+        card.top_commanders?.some((c) => c.commander_id === selectedCommander)
+      )
+    : spiceCards;
 
-export default async function TrapSpicePage() {
-  const [trapCards, spiceCards] = await Promise.all([
-    getTrapCards(),
-    getSpiceCards(),
-  ]);
+  // Paginated results
+  const paginatedTrapCards = filteredTrapCards.slice(0, trapPage * ITEMS_PER_PAGE);
+  const paginatedSpiceCards = filteredSpiceCards.slice(0, spicePage * ITEMS_PER_PAGE);
+
+  const hasMoreTraps = paginatedTrapCards.length < filteredTrapCards.length;
+  const hasMoreSpice = paginatedSpiceCards.length < filteredSpiceCards.length;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
@@ -87,6 +188,39 @@ export default async function TrapSpicePage() {
             Find overrated cards to cut and hidden gems to try
           </p>
         </div>
+
+        {/* Commander Filter */}
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <label className="text-[#a1a1aa] text-sm font-medium whitespace-nowrap">
+                Filter by Commander:
+              </label>
+              <select
+                value={selectedCommander}
+                onChange={(e) => setSelectedCommander(e.target.value)}
+                className="flex-1 max-w-md bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-3 py-2 text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#c9a227]"
+              >
+                <option value="">All Commanders (Global)</option>
+                {commanders.map((c) => (
+                  <option key={c.commander_id} value={c.commander_id}>
+                    {c.commander_name} ({c.total_entries} entries)
+                  </option>
+                ))}
+              </select>
+              {selectedCommander && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedCommander("")}
+                  className="bg-[#1a1a1a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                >
+                  Clear Filter
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Explanation */}
         <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
@@ -115,141 +249,187 @@ export default async function TrapSpicePage() {
           </CardContent>
         </Card>
 
-        {/* Two-panel layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Trap Cards Panel */}
-          <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#ef4444]">
-            <CardHeader>
-              <CardTitle className="text-[#ef4444] flex items-center gap-2">
-                <span className="text-2xl">⚠️</span>
-                Trap Cards ({trapCards.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
-                      <TableHead className="text-[#a1a1aa]">Card</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Inclusion</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Win Rate</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Delta</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {trapCards.map((card) => (
-                      <TableRow
-                        key={card.card_name}
-                        className="border-[#2a2a2a] hover:bg-[#252525]"
+        {loading ? (
+          <div className="text-center py-12 text-[#a1a1aa]">Loading...</div>
+        ) : (
+          <>
+            {/* Two-panel layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Trap Cards Panel */}
+              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#ef4444]">
+                <CardHeader>
+                  <CardTitle className="text-[#ef4444] flex items-center gap-2">
+                    Trap Cards ({filteredTrapCards.length})
+                  </CardTitle>
+                  <p className="text-[#a1a1aa] text-sm">
+                    Popular cards with below-average win rates
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {paginatedTrapCards.length === 0 ? (
+                      <p className="text-[#a1a1aa] text-sm">
+                        No trap cards found for this commander.
+                      </p>
+                    ) : (
+                      paginatedTrapCards.map((card) => (
+                        <CardWithCommanders
+                          key={card.card_name}
+                          card={card}
+                          type="trap"
+                          highlightCommander={selectedCommander}
+                        />
+                      ))
+                    )}
+                    {hasMoreTraps && (
+                      <Button
+                        variant="outline"
+                        className="w-full bg-[#0a0a0a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                        onClick={() => setTrapPage((p) => p + 1)}
                       >
-                        <TableCell>
-                          <a
-                            href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium hover:text-[#c9a227] transition-colors"
-                          >
-                            {card.card_name}
-                          </a>
-                          <p className="text-xs text-[#a1a1aa]">
-                            {card.deck_count} decks · {card.commander_count} commanders
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-[#a1a1aa]">
-                          {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {(parseFloat(card.avg_win_rate) * 100).toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-[#ef4444]">
-                          {(parseFloat(card.win_rate_delta) * 100).toFixed(2)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                        Show More ({filteredTrapCards.length - paginatedTrapCards.length} remaining)
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Spice Cards Panel */}
-          <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#22c55e]">
-            <CardHeader>
-              <CardTitle className="text-[#22c55e] flex items-center gap-2">
-                <span className="text-2xl">✨</span>
-                Spice Cards ({spiceCards.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
-                      <TableHead className="text-[#a1a1aa]">Card</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Inclusion</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Win Rate</TableHead>
-                      <TableHead className="text-[#a1a1aa] text-right">Delta</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {spiceCards.map((card) => (
-                      <TableRow
-                        key={card.card_name}
-                        className="border-[#2a2a2a] hover:bg-[#252525]"
+              {/* Spice Cards Panel */}
+              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#22c55e]">
+                <CardHeader>
+                  <CardTitle className="text-[#22c55e] flex items-center gap-2">
+                    Spice Cards ({filteredSpiceCards.length})
+                  </CardTitle>
+                  <p className="text-[#a1a1aa] text-sm">
+                    Hidden gems with above-average win rates
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {paginatedSpiceCards.length === 0 ? (
+                      <p className="text-[#a1a1aa] text-sm">
+                        No spice cards found for this commander.
+                      </p>
+                    ) : (
+                      paginatedSpiceCards.map((card) => (
+                        <CardWithCommanders
+                          key={card.card_name}
+                          card={card}
+                          type="spice"
+                          highlightCommander={selectedCommander}
+                        />
+                      ))
+                    )}
+                    {hasMoreSpice && (
+                      <Button
+                        variant="outline"
+                        className="w-full bg-[#0a0a0a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                        onClick={() => setSpicePage((p) => p + 1)}
                       >
-                        <TableCell>
-                          <a
-                            href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium hover:text-[#c9a227] transition-colors"
-                          >
-                            {card.card_name}
-                          </a>
-                          <p className="text-xs text-[#a1a1aa]">
-                            {card.deck_count} decks · {card.commander_count} commanders
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-[#a1a1aa]">
-                          {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {(parseFloat(card.avg_win_rate) * 100).toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-[#22c55e]">
-                          +{(parseFloat(card.win_rate_delta) * 100).toFixed(2)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                        Show More ({filteredSpiceCards.length - paginatedSpiceCards.length} remaining)
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Methodology Note */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-8">
-          <CardHeader>
-            <CardTitle className="text-[#fafafa]">Methodology</CardTitle>
-          </CardHeader>
-          <CardContent className="text-[#a1a1aa] space-y-2">
-            <p>
-              <strong className="text-[#ef4444]">Trap Score</strong> = Inclusion Rate ×
-              |Baseline Win Rate - Card Win Rate| for cards with negative delta
-            </p>
-            <p>
-              <strong className="text-[#22c55e]">Spice Cards</strong> are filtered for cards
-              with &lt;10% inclusion but significant positive win rate delta
-            </p>
-            <p className="text-sm italic">
-              Note: Low sample sizes can skew results. Cards with very few appearances may
-              show extreme win rates due to variance. Consider the deck count when
-              evaluating spice cards.
-            </p>
-          </CardContent>
-        </Card>
+            {/* Methodology Note */}
+            <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-8">
+              <CardHeader>
+                <CardTitle className="text-[#fafafa]">Methodology</CardTitle>
+              </CardHeader>
+              <CardContent className="text-[#a1a1aa] space-y-2">
+                <p>
+                  <strong className="text-[#ef4444]">Trap Score</strong> = Inclusion Rate ×
+                  |Baseline Win Rate - Card Win Rate| for cards with negative delta
+                </p>
+                <p>
+                  <strong className="text-[#22c55e]">Spice Cards</strong> are filtered for cards
+                  with &lt;10% inclusion but significant positive win rate delta
+                </p>
+                <p className="text-sm italic">
+                  Note: Low sample sizes can skew results. Cards with very few appearances may
+                  show extreme win rates due to variance. Consider the deck count when
+                  evaluating spice cards.
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </main>
+    </div>
+  );
+}
+
+function CardWithCommanders({
+  card,
+  type,
+  highlightCommander,
+}: {
+  card: TrapCard | SpiceCard;
+  type: "trap" | "spice";
+  highlightCommander?: string;
+}) {
+  const delta = parseFloat(card.win_rate_delta) * 100;
+  const winRate = parseFloat(card.avg_win_rate) * 100;
+  const inclusionRate = parseFloat(card.inclusion_rate) * 100;
+  const color = type === "trap" ? "#ef4444" : "#22c55e";
+
+  return (
+    <div className="p-3 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a]">
+      {/* Card Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <a
+            href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium hover:text-[#c9a227] transition-colors"
+          >
+            {card.card_name}
+          </a>
+          <p className="text-xs text-[#a1a1aa] mt-0.5">
+            {card.deck_count} decks · {card.commander_count} commanders
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-mono font-bold" style={{ color }}>
+            {type === "spice" && delta > 0 ? "+" : ""}
+            {delta.toFixed(2)}%
+          </p>
+          <p className="text-xs text-[#a1a1aa]">
+            {winRate.toFixed(1)}% WR · {inclusionRate.toFixed(0)}% incl
+          </p>
+        </div>
+      </div>
+
+      {/* Commander Breakdown */}
+      {card.top_commanders && card.top_commanders.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+          <p className="text-xs text-[#a1a1aa] mb-2">Top commanders using this card:</p>
+          <div className="flex flex-wrap gap-2">
+            {card.top_commanders.map((commander) => (
+              <Link
+                key={commander.commander_id}
+                href={`/commanders/${commander.commander_id}`}
+                className={`text-xs px-2 py-1 rounded transition-colors ${
+                  highlightCommander === commander.commander_id
+                    ? "bg-[#c9a227] text-[#0a0a0a]"
+                    : "bg-[#1a1a1a] hover:bg-[#252525]"
+                }`}
+              >
+                <span className={highlightCommander === commander.commander_id ? "text-[#0a0a0a]" : "text-[#fafafa]"}>
+                  {commander.commander.split(" / ")[0]}
+                </span>
+                <span className={`ml-1 ${highlightCommander === commander.commander_id ? "text-[#0a0a0a]/70" : "text-[#a1a1aa]"}`}>
+                  ({commander.deck_count})
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
