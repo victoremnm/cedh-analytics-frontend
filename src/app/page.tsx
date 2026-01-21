@@ -2,6 +2,9 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
+// Force dynamic rendering - fetch fresh data on each request
+export const dynamic = "force-dynamic";
+
 async function getStats() {
   const [
     { count: tournamentCount },
