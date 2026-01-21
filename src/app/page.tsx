@@ -6,26 +6,43 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 async function getStats() {
-  const [
-    { count: tournamentCount },
-    { count: commanderCount },
-    { data: topCommanders },
-  ] = await Promise.all([
-    supabase.from("tournaments").select("*", { count: "exact", head: true }),
-    supabase.from("commanders").select("*", { count: "exact", head: true }),
-    supabase
-      .from("commander_stats")
-      .select("commander_name, total_entries, avg_win_rate, color_identity")
-      .gt("total_entries", 10)
-      .order("total_entries", { ascending: false })
-      .limit(5),
-  ]);
+  try {
+    const [tournamentResult, commanderResult, topCommandersResult] =
+      await Promise.all([
+        supabase.from("tournaments").select("*", { count: "exact", head: true }),
+        supabase.from("commanders").select("*", { count: "exact", head: true }),
+        supabase
+          .from("commander_stats")
+          .select("commander_name, total_entries, avg_win_rate, color_identity")
+          .gt("total_entries", 10)
+          .order("total_entries", { ascending: false })
+          .limit(5),
+      ]);
 
-  return {
-    tournamentCount: tournamentCount ?? 0,
-    commanderCount: commanderCount ?? 0,
-    topCommanders: topCommanders ?? [],
-  };
+    // Log errors for debugging
+    if (tournamentResult.error) {
+      console.error("Tournament query error:", tournamentResult.error);
+    }
+    if (commanderResult.error) {
+      console.error("Commander query error:", commanderResult.error);
+    }
+    if (topCommandersResult.error) {
+      console.error("Top commanders query error:", topCommandersResult.error);
+    }
+
+    return {
+      tournamentCount: tournamentResult.count ?? 0,
+      commanderCount: commanderResult.count ?? 0,
+      topCommanders: topCommandersResult.data ?? [],
+    };
+  } catch (error) {
+    console.error("Failed to fetch stats:", error);
+    return {
+      tournamentCount: 0,
+      commanderCount: 0,
+      topCommanders: [],
+    };
+  }
 }
 
 export default async function Home() {
