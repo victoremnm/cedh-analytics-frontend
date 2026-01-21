@@ -11,7 +11,7 @@ interface TopCommander {
   total_entries: number;
   avg_win_rate: number;
   conversion_rate_top_16: number;
-  color_identity: string[];
+  color_identity: string[] | null;
 }
 
 async function getStats() {
@@ -179,7 +179,7 @@ export default async function Home() {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
           <FeatureCard
             href="/commanders"
             title="Commander Rankings"
@@ -210,6 +210,12 @@ export default async function Home() {
             description="Track survival probability through tournament rounds"
             color="#06b6d4"
           />
+          <FeatureCard
+            href="/about"
+            title="Methodology"
+            description="Statistics, formulas, and how it all works"
+            color="#a1a1aa"
+          />
         </div>
       </main>
     </div>
@@ -236,7 +242,7 @@ function CommanderRow({
       <div className="flex items-center gap-3">
         <span className="text-[#a1a1aa] w-6 font-mono text-sm">#{rank}</span>
         <div className="flex gap-1">
-          {commander.color_identity?.map((color: string) => (
+          {commander.color_identity?.filter(Boolean).map((color: string) => (
             <ColorBadge key={color} color={color} />
           ))}
         </div>
