@@ -29,7 +29,7 @@ export const CommanderMatchupSchema = z.object({
   expected_win_rate: z.number().min(0).max(1),
   win_rate_vs_expected: z.number(),
   is_statistically_significant: z.boolean(),
-  confidence_level: z.enum(["high", "medium", "low"]),
+  confidence_level: z.enum(["high", "medium", "low", "very_low"]),
 });
 
 export const CommanderMatchupsResponseSchema = z.array(CommanderMatchupSchema);
@@ -41,6 +41,7 @@ export type CommanderMatchup = z.infer<typeof CommanderMatchupSchema>;
 // ============================================
 export const NotablePlayerSchema = z.object({
   player_name: z.string(),
+  topdeck_id: z.string().nullable(),
   entries: z.number().int().positive(),
   total_wins: z.number().int().nonnegative(),
   total_games: z.number().int().nonnegative(),

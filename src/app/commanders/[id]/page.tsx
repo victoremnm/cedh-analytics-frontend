@@ -68,6 +68,7 @@ interface CardPerformance {
 
 interface NotablePlayer {
   player_name: string;
+  topdeck_id: string | null;
   entries: number;
   total_wins: number;
   total_games: number;
@@ -493,7 +494,19 @@ export default async function CommanderDetailPage({
                             className="border-[#2a2a2a] hover:bg-[#252525]"
                           >
                             <TableCell className="font-medium">
-                              {player.player_name}
+                              {player.topdeck_id ? (
+                                <a
+                                  href={`https://topdeck.gg/profile/${player.topdeck_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-[#c9a227] transition-colors"
+                                >
+                                  {player.player_name}
+                                  <span className="ml-1 text-[#a1a1aa] text-xs">↗</span>
+                                </a>
+                              ) : (
+                                player.player_name
+                              )}
                             </TableCell>
                             <TableCell className="text-right font-mono text-[#c9a227]">
                               {player.entries}
