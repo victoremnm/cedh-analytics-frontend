@@ -31,8 +31,8 @@ export default defineConfig({
     },
   ],
 
-  // Start local server if no BASE_URL provided
-  // In CI, use production build (npm start); locally use dev server
+  // Start local server if no BASE_URL provided.
+  // In CI, use production build (npm start); locally use dev server.
   webServer: process.env.BASE_URL
     ? undefined
     : {
