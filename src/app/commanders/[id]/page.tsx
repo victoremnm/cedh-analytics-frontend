@@ -120,6 +120,7 @@ interface RecentFinish {
   made_top_cut: boolean;
   made_top_16: boolean;
   decklist_url: string | null;
+  player_handle: string | null;
   tournament: {
     id: string;
     name: string;
@@ -147,7 +148,7 @@ async function getRecentFinishes(commanderId: string) {
   const { data, error } = await supabase
     .from("tournament_entries")
     .select(
-      "id, final_standing, made_top_cut, made_top_16, decklist_url, tournaments ( id, name, start_date, player_count, top_cut, topdeck_tid )"
+      "id, final_standing, made_top_cut, made_top_16, decklist_url, tournaments ( id, name, start_date, player_count, top_cut, topdeck_tid ), players ( topdeck_handle )"
     )
     .eq("commander_id", commanderId)
     .or("made_top_16.eq.true,made_top_cut.eq.true,final_standing.eq.1")
@@ -170,6 +171,7 @@ async function getRecentFinishes(commanderId: string) {
         made_top_cut: row.made_top_cut,
         made_top_16: row.made_top_16,
         decklist_url: row.decklist_url,
+        player_handle: row.players?.topdeck_handle ?? null,
         tournament,
       } as RecentFinish;
     })
@@ -1012,6 +1014,11 @@ function RecentFinishRow({
   const tournamentUrl = finish.tournament.topdeck_tid
     ? `https://topdeck.gg/event/${finish.tournament.topdeck_tid}`
     : null;
+  const topdeckDeckUrl =
+    finish.tournament.topdeck_tid && finish.player_handle
+      ? `https://topdeck.gg/deck/${finish.tournament.topdeck_tid}/@${finish.player_handle}`
+      : null;
+  const decklistHref = finish.decklist_url || topdeckDeckUrl;
 
   const dateLabel = new Date(finish.tournament.start_date).toLocaleDateString(
     "en-US",
@@ -1056,14 +1063,14 @@ function RecentFinishRow({
         </p>
       </div>
       <div className="flex flex-wrap gap-2 text-xs">
-        {finish.decklist_url ? (
+        {decklistHref ? (
           <a
-            href={finish.decklist_url}
+            href={decklistHref}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-border/60 px-3 py-1 text-muted-foreground hover:border-primary/40 hover:text-foreground"
           >
-            {deckHost || "Decklist"}
+            {deckHost || (topdeckDeckUrl ? "TopDeck" : "Decklist")}
           </a>
         ) : null}
       </div>
