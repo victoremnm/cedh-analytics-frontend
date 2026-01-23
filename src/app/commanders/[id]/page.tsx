@@ -173,7 +173,7 @@ async function getRecentFinishes(commanderId: string) {
         made_top_cut: row.made_top_cut,
         made_top_16: row.made_top_16,
         decklist_url: row.decklist_url,
-        player_handle: player?.topdeck_handle ?? player?.topdeck_id ?? null,
+        player_handle: player?.topdeck_handle ?? null,
         player_id: player?.topdeck_id ?? null,
         tournament,
       } as RecentFinish;
@@ -1018,8 +1018,8 @@ function RecentFinishRow({
     ? `https://topdeck.gg/event/${finish.tournament.topdeck_tid}`
     : null;
   const topdeckDeckUrl =
-    finish.tournament.topdeck_tid && finish.player_handle
-      ? `https://topdeck.gg/deck/${finish.tournament.topdeck_tid}/@${finish.player_handle}`
+    finish.tournament.topdeck_tid && (finish.player_id || finish.player_handle)
+      ? `https://topdeck.gg/deck/${finish.tournament.topdeck_tid}/${finish.player_id || finish.player_handle}`
       : null;
   const decklistHref = finish.decklist_url || topdeckDeckUrl;
 
