@@ -35,13 +35,13 @@ async function getStats() {
           .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
           .gt("total_entries", 20)
           .order("total_entries", { ascending: false })
-          .limit(15),
+          .limit(16),
         supabase
           .from("commander_stats")
           .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
           .gt("total_entries", 30)
           .order("avg_win_rate", { ascending: false })
-          .limit(8),
+          .limit(11),
       ]);
 
     if (tournamentResult.error) {
