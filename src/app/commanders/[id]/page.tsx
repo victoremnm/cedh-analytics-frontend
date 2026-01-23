@@ -121,6 +121,7 @@ interface RecentFinish {
   made_top_16: boolean;
   decklist_url: string | null;
   player_handle: string | null;
+  player_id: string | null;
   tournament: {
     id: string;
     name: string;
@@ -148,7 +149,7 @@ async function getRecentFinishes(commanderId: string) {
   const { data, error } = await supabase
     .from("tournament_entries")
     .select(
-      "id, final_standing, made_top_cut, made_top_16, decklist_url, tournaments ( id, name, start_date, player_count, top_cut, topdeck_tid ), players ( topdeck_handle )"
+      "id, final_standing, made_top_cut, made_top_16, decklist_url, tournaments ( id, name, start_date, player_count, top_cut, topdeck_tid ), players ( topdeck_handle, topdeck_id )"
     )
     .eq("commander_id", commanderId)
     .or("made_top_16.eq.true,made_top_cut.eq.true,final_standing.eq.1")
@@ -172,7 +173,8 @@ async function getRecentFinishes(commanderId: string) {
         made_top_cut: row.made_top_cut,
         made_top_16: row.made_top_16,
         decklist_url: row.decklist_url,
-        player_handle: player?.topdeck_handle ?? null,
+        player_handle: player?.topdeck_handle ?? player?.topdeck_id ?? null,
+        player_id: player?.topdeck_id ?? null,
         tournament,
       } as RecentFinish;
     })
