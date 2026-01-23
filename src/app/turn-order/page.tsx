@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { normalizeDisplayString } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface SeatPositionStat {
   seat_position: number;
@@ -38,10 +47,7 @@ export default function TurnOrderPage() {
   useEffect(() => {
     async function fetchStats() {
       const [globalResult, commanderResult] = await Promise.all([
-        supabase
-          .from("seat_position_stats")
-          .select("*")
-          .order("seat_position"),
+        supabase.from("seat_position_stats").select("*").order("seat_position"),
         supabase
           .from("commander_seat_stats")
           .select("*")
@@ -63,7 +69,10 @@ export default function TurnOrderPage() {
       if (commanderResult.error) {
         console.error("Error fetching commander seat stats:", commanderResult.error);
       } else {
-        setCommanderStats(commanderResult.data || []);
+        const cleaned = (commanderResult.data || []).filter(
+          (commander) => commander.commander_name?.toLowerCase() !== "unknown commander"
+        );
+        setCommanderStats(cleaned);
       }
 
       setLoading(false);
@@ -73,52 +82,57 @@ export default function TurnOrderPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa] flex items-center justify-center">
-        <p className="text-[#a1a1aa]">Loading turn order data...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading turn order data...</p>
       </div>
     );
   }
 
   const totalGames = stats[0]?.total_games || 0;
   const totalWins = stats.reduce((sum, s) => sum + s.wins, 0);
-  const expectedRate = 0.25; // 25% expected in 4-player pods
+  const expectedRate = 0.25;
 
-  // Calculate chi-square statistic
   const expectedWins = totalWins / 4;
   const chiSquare = stats.reduce((sum, s) => {
     const diff = s.wins - expectedWins;
     return sum + (diff * diff) / expectedWins;
   }, 0);
 
-  // Cohen's w effect size
   const cohensW = Math.sqrt(chiSquare / totalWins);
   const effectInterpretation =
     cohensW < 0.1 ? "small" : cohensW < 0.3 ? "medium" : "large";
 
+  const effectColorClass =
+    effectInterpretation === "large"
+      ? "text-primary"
+      : effectInterpretation === "medium"
+        ? "text-[hsl(var(--knd-amber))]"
+        : "text-muted-foreground";
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-[#a1a1aa] hover:text-[#fafafa] text-sm mb-4 inline-block"
-          >
-            ← Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#c9a227] to-[#8b5cf6] bg-clip-text text-transparent">
-            Turn Order Fairness
-          </h1>
-          <p className="text-[#a1a1aa] mt-2">
-            Statistical analysis of seat position advantage across{" "}
-            {totalGames.toLocaleString()} games
-          </p>
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-border/70 bg-card/60 px-6 py-6">
+          <div className="knd-watermark absolute inset-0" />
+          <div className="relative">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Home
+            </Link>
+            <h1 className="mt-4 text-3xl font-semibold text-foreground md:text-4xl">
+              Turn Order Fairness
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Statistical analysis of seat position advantage across {totalGames.toLocaleString()} games.
+            </p>
+          </div>
         </div>
 
-        {/* Win Rate by Position */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
-          <CardHeader>
-            <CardTitle className="text-[#fafafa]">Win Rate by Seat Position</CardTitle>
+        <Card className="mb-8">
+          <CardHeader className="knd-panel-header">
+            <CardTitle className="text-lg">Win Rate by Seat Position</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -126,60 +140,54 @@ export default function TurnOrderPage() {
                 const winRate = parseFloat(stat.win_rate) * 100;
                 const isAboveExpected = winRate > expectedRate * 100;
                 const delta = winRate - expectedRate * 100;
+                const seatColor = getSeatColor(stat.seat_position);
 
                 return (
                   <div key={stat.seat_position} className="space-y-2">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg"
-                          style={{
-                            backgroundColor: getSeatColor(stat.seat_position),
-                            color: "#0a0a0a",
-                          }}
+                          className="flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-background"
+                          style={{ backgroundColor: seatColor }}
                         >
                           {stat.seat_position + 1}
                         </div>
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium text-foreground">
                             {getSeatLabel(stat.seat_position)}
                           </p>
-                          <p className="text-sm text-[#a1a1aa]">
+                          <p className="text-sm text-muted-foreground">
                             {stat.wins.toLocaleString()} wins / {stat.total_games.toLocaleString()} games
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p
-                          className="text-2xl font-bold font-mono"
-                          style={{ color: getSeatColor(stat.seat_position) }}
-                        >
+                        <p className="text-2xl font-semibold" style={{ color: seatColor }}>
                           {winRate.toFixed(1)}%
                         </p>
                         <p
-                          className="text-sm font-mono"
-                          style={{ color: isAboveExpected ? "#22c55e" : "#ef4444" }}
+                          className={`text-sm font-mono ${
+                            isAboveExpected ? "text-primary" : "text-[hsl(var(--knd-amber))]"
+                          }`}
                         >
                           {delta > 0 ? "+" : ""}
                           {delta.toFixed(1)}% vs expected
                         </p>
-                        <p className="text-xs text-[#a1a1aa] font-mono mt-1">
+                        <p className="text-xs text-muted-foreground mt-1 font-mono">
                           Draw: {((stat.draw_rate || 0) * 100).toFixed(1)}% · W+D: {((stat.win_plus_draw_rate || 0) * 100).toFixed(1)}%
                         </p>
                       </div>
                     </div>
-                    {/* Visual bar */}
-                    <div className="relative h-8 bg-[#2a2a2a] rounded-lg overflow-hidden">
+                    <div className="relative h-8 rounded-lg bg-muted/40 overflow-hidden">
                       <div
                         className="absolute top-0 left-0 h-full rounded-lg transition-all"
                         style={{
                           width: `${winRate * 3}%`,
-                          backgroundColor: getSeatColor(stat.seat_position),
+                          backgroundColor: seatColor,
                         }}
                       />
-                      {/* Expected line at 25% */}
                       <div
-                        className="absolute top-0 h-full w-0.5 bg-white/50"
+                        className="absolute top-0 h-full w-0.5 bg-border/80"
                         style={{ left: `${expectedRate * 100 * 3}%` }}
                       />
                     </div>
@@ -187,253 +195,213 @@ export default function TurnOrderPage() {
                 );
               })}
             </div>
-            <p className="text-[#a1a1aa] text-sm mt-4 text-center">
-              White line indicates expected 25% win rate in 4-player pods
+            <p className="text-muted-foreground text-sm mt-4 text-center">
+              The thin line marks the expected 25% win rate in four-player pods.
             </p>
           </CardContent>
         </Card>
 
-        {/* Statistical Analysis */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-            <CardHeader>
-              <CardTitle className="text-[#fafafa]">Statistical Significance</CardTitle>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="knd-panel-header">
+              <CardTitle className="text-lg">Statistical Significance</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[#a1a1aa]">Chi-Square Statistic (χ²)</span>
-                <span className="font-mono font-bold text-[#c9a227]">
-                  {chiSquare.toFixed(2)}
-                </span>
+            <CardContent className="space-y-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Chi-Square Statistic (χ²)</span>
+                <span className="font-mono text-primary">{chiSquare.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#a1a1aa]">Degrees of Freedom</span>
-                <span className="font-mono">3</span>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Degrees of Freedom</span>
+                <span className="font-mono text-foreground">3</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#a1a1aa]">Cohen&apos;s w (Effect Size)</span>
-                <span className="font-mono font-bold text-[#8b5cf6]">
-                  {cohensW.toFixed(3)}
-                </span>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Cohen&apos;s w (Effect Size)</span>
+                <span className={`font-mono ${effectColorClass}`}>{cohensW.toFixed(3)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#a1a1aa]">Effect Interpretation</span>
-                <span
-                  className="font-bold"
-                  style={{
-                    color:
-                      effectInterpretation === "large"
-                        ? "#ef4444"
-                        : effectInterpretation === "medium"
-                        ? "#f59e0b"
-                        : "#22c55e",
-                  }}
-                >
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Effect Interpretation</span>
+                <span className={`font-semibold ${effectColorClass}`}>
                   {effectInterpretation.toUpperCase()}
                 </span>
               </div>
-              <hr className="border-[#2a2a2a]" />
-              <div className="flex justify-between items-center">
-                <span className="text-[#a1a1aa]">Result</span>
-                <span className="font-bold text-[#ef4444]">
-                  Statistically Significant
-                </span>
+              <div className="flex items-center justify-between border-t border-border/60 pt-4">
+                <span className="text-muted-foreground">Result</span>
+                <span className="font-semibold text-primary">Statistically Significant</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-            <CardHeader>
-              <CardTitle className="text-[#fafafa]">Interpretation</CardTitle>
+          <Card>
+            <CardHeader className="knd-panel-header">
+              <CardTitle className="text-lg">Interpretation</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4 text-[#a1a1aa]">
-                <p>
-                  Players in <strong className="text-[#22c55e]">Seat 1 (first)</strong> win{" "}
-                  <strong className="text-[#fafafa]">
-                    {(parseFloat(stats[0]?.win_rate || "0") * 100).toFixed(1)}%
-                  </strong>{" "}
-                  of games, significantly higher than the expected 25%.
-                </p>
-                <p>
-                  Players in <strong className="text-[#ef4444]">Seat 4 (last)</strong> win only{" "}
-                  <strong className="text-[#fafafa]">
-                    {(parseFloat(stats[3]?.win_rate || "0") * 100).toFixed(1)}%
-                  </strong>{" "}
-                  of games, well below expected.
-                </p>
-                <p>
-                  The effect size (Cohen&apos;s w = {cohensW.toFixed(3)}) indicates a{" "}
-                  <strong
-                    style={{
-                      color:
-                        effectInterpretation === "large"
-                          ? "#ef4444"
-                          : effectInterpretation === "medium"
-                          ? "#f59e0b"
-                          : "#22c55e",
-                    }}
-                  >
-                    {effectInterpretation}
-                  </strong>{" "}
-                  first-player advantage in cEDH.
-                </p>
-                <p className="text-sm italic">
-                  This suggests turn order significantly impacts game outcomes, with going
-                  first providing a meaningful competitive advantage.
-                </p>
-              </div>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <p>
+                Players in <strong className="text-foreground">Seat 1 (first)</strong> win{" "}
+                <strong className="text-foreground">
+                  {(parseFloat(stats[0]?.win_rate || "0") * 100).toFixed(1)}%
+                </strong>{" "}
+                of games, higher than the expected 25%.
+              </p>
+              <p>
+                Players in <strong className="text-foreground">Seat 4 (last)</strong> win only{" "}
+                <strong className="text-foreground">
+                  {(parseFloat(stats[3]?.win_rate || "0") * 100).toFixed(1)}%
+                </strong>{" "}
+                of games, below the expected baseline.
+              </p>
+              <p>
+                The effect size (Cohen&apos;s w = {cohensW.toFixed(3)}) indicates a{" "}
+                <strong className={effectColorClass}>{effectInterpretation}</strong> first-player advantage.
+              </p>
+              <p className="text-xs italic">
+                This suggests turn order materially impacts outcomes in competitive pods.
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Raw Data */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-          <CardHeader>
-            <CardTitle className="text-[#fafafa]">Raw Data</CardTitle>
+        <Card className="mt-6">
+          <CardHeader className="knd-panel-header">
+            <CardTitle className="text-lg">Raw Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#2a2a2a]">
-                    <th className="text-left py-2 text-[#a1a1aa]">Seat</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Games</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Wins</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Losses</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Draws</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Win Rate</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Draw Rate</th>
-                    <th className="text-right py-2 text-[#a1a1aa]">Win+Draw</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.map((stat) => (
-                    <tr key={stat.seat_position} className="border-b border-[#2a2a2a]">
-                      <td className="py-2 font-medium">
-                        Seat {stat.seat_position + 1} ({getSeatLabel(stat.seat_position)})
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#a1a1aa]">
-                        {stat.total_games.toLocaleString()}
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#22c55e]">
-                        {stat.wins.toLocaleString()}
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#ef4444]">
-                        {stat.losses.toLocaleString()}
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#f59e0b]">
-                        {stat.draws.toLocaleString()}
-                      </td>
-                      <td className="py-2 text-right font-mono font-bold" style={{ color: getSeatColor(stat.seat_position) }}>
-                        {(parseFloat(stat.win_rate) * 100).toFixed(2)}%
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#f59e0b]">
-                        {((stat.draw_rate || 0) * 100).toFixed(2)}%
-                      </td>
-                      <td className="py-2 text-right font-mono text-[#8b5cf6]">
-                        {((stat.win_plus_draw_rate || 0) * 100).toFixed(2)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  <TableHead>Seat</TableHead>
+                  <TableHead className="text-right">Games</TableHead>
+                  <TableHead className="text-right">Wins</TableHead>
+                  <TableHead className="text-right">Losses</TableHead>
+                  <TableHead className="text-right">Draws</TableHead>
+                  <TableHead className="text-right">Win Rate</TableHead>
+                  <TableHead className="text-right">Draw Rate</TableHead>
+                  <TableHead className="text-right">Win+Draw</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stats.map((stat) => (
+                  <TableRow key={stat.seat_position} className="border-border/60">
+                    <TableCell className="font-medium">
+                      Seat {stat.seat_position + 1} ({getSeatLabel(stat.seat_position)})
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {stat.total_games.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-foreground">
+                      {stat.wins.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {stat.losses.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {stat.draws.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono" style={{ color: getSeatColor(stat.seat_position) }}>
+                      {(parseFloat(stat.win_rate) * 100).toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {((stat.draw_rate || 0) * 100).toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {((stat.win_plus_draw_rate || 0) * 100).toFixed(2)}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
-        {/* Commander Seat Position Breakdown */}
         {commanderStats.length > 0 && (
-          <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-6">
-            <CardHeader>
-              <CardTitle className="text-[#fafafa]">Commander Performance by Seat</CardTitle>
-              <p className="text-[#a1a1aa] text-sm">
-                Click a seat to see which commanders perform best from that position
+          <Card className="mt-6">
+            <CardHeader className="knd-panel-header">
+              <CardTitle className="text-lg">Commander Performance by Seat</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Select a seat to see which commanders perform best from that position.
               </p>
             </CardHeader>
             <CardContent>
-              {/* Seat Selector */}
-              <div className="flex gap-2 mb-6">
-                {[0, 1, 2, 3].map((seat) => (
-                  <button
-                    key={seat}
-                    onClick={() => setSelectedSeat(selectedSeat === seat ? null : seat)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      selectedSeat === seat
-                        ? "text-[#0a0a0a]"
-                        : "bg-[#2a2a2a] text-[#fafafa] hover:bg-[#3a3a3a]"
-                    }`}
-                    style={{
-                      backgroundColor: selectedSeat === seat ? getSeatColor(seat) : undefined,
-                    }}
-                  >
-                    Seat {seat + 1}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {[0, 1, 2, 3].map((seat) => {
+                  const seatColor = getSeatColor(seat);
+                  const isSelected = selectedSeat === seat;
+
+                  return (
+                    <button
+                      key={seat}
+                      onClick={() => setSelectedSeat(isSelected ? null : seat)}
+                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                        isSelected
+                          ? "border-transparent text-background"
+                          : "border-border/70 text-foreground hover:border-primary/40"
+                      }`}
+                      style={{ backgroundColor: isSelected ? seatColor : undefined }}
+                    >
+                      Seat {seat + 1}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Commander Table for Selected Seat */}
               {selectedSeat !== null && (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[#2a2a2a]">
-                        <th className="text-left py-2 text-[#a1a1aa]">Commander</th>
-                        <th className="text-right py-2 text-[#a1a1aa]">Games</th>
-                        <th className="text-right py-2 text-[#a1a1aa]">Win Rate</th>
-                        <th className="text-right py-2 text-[#a1a1aa]">Draw Rate</th>
-                        <th className="text-right py-2 text-[#a1a1aa]">Win+Draw</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commanderStats
-                        .filter((c) => c.seat_position === selectedSeat)
-                        .slice(0, 15)
-                        .map((commander) => {
-                          const winRate = parseFloat(commander.win_rate) * 100;
-                          const drawRate = parseFloat(commander.draw_rate) * 100;
-                          const winPlusDrawRate = parseFloat(commander.win_plus_draw_rate) * 100;
-                          const isAboveExpected = winRate > 25;
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      <TableHead>Commander</TableHead>
+                      <TableHead className="text-right">Games</TableHead>
+                      <TableHead className="text-right">Win Rate</TableHead>
+                      <TableHead className="text-right">Draw Rate</TableHead>
+                      <TableHead className="text-right">Win+Draw</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {commanderStats
+                      .filter((c) => c.seat_position === selectedSeat)
+                      .slice(0, 15)
+                      .map((commander) => {
+                        const winRate = parseFloat(commander.win_rate) * 100;
+                        const drawRate = parseFloat(commander.draw_rate) * 100;
+                        const winPlusDrawRate = parseFloat(commander.win_plus_draw_rate) * 100;
+                        const isAboveExpected = winRate > 25;
 
-                          return (
-                            <tr key={commander.commander_id} className="border-b border-[#2a2a2a]">
-                              <td className="py-2">
-                                <Link
-                                  href={`/commanders/${commander.commander_id}`}
-                                  className="hover:text-[#c9a227] transition-colors"
-                                >
-                                  {commander.commander_name}
-                                </Link>
-                              </td>
-                              <td className="py-2 text-right font-mono text-[#a1a1aa]">
-                                {commander.games}
-                              </td>
-                              <td
-                                className="py-2 text-right font-mono font-bold"
-                                style={{ color: isAboveExpected ? "#22c55e" : "#ef4444" }}
+                        return (
+                          <TableRow key={commander.commander_id} className="border-border/60">
+                            <TableCell>
+                              <Link
+                                href={`/commanders/${commander.commander_id}`}
+                                className="text-foreground hover:text-primary"
                               >
-                                {winRate.toFixed(1)}%
-                              </td>
-                              <td className="py-2 text-right font-mono text-[#f59e0b]">
-                                {drawRate.toFixed(1)}%
-                              </td>
-                              <td className="py-2 text-right font-mono text-[#8b5cf6]">
-                                {winPlusDrawRate.toFixed(1)}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                  <p className="text-[#a1a1aa] text-xs mt-4">
-                    Showing commanders with 20+ games from Seat {selectedSeat + 1}
-                  </p>
-                </div>
+                                {normalizeDisplayString(commander.commander_name)}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {commander.games}
+                            </TableCell>
+                            <TableCell
+                              className={`text-right font-mono ${
+                                isAboveExpected ? "text-primary" : "text-muted-foreground"
+                              }`}
+                            >
+                              {winRate.toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {drawRate.toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {winPlusDrawRate.toFixed(1)}%
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
               )}
 
               {selectedSeat === null && (
-                <p className="text-[#a1a1aa] text-center py-8">
-                  Select a seat position above to see commander performance breakdown
+                <p className="text-muted-foreground text-center py-8">
+                  Select a seat position above to see commander performance breakdown.
                 </p>
               )}
             </CardContent>
@@ -445,8 +413,13 @@ export default function TurnOrderPage() {
 }
 
 function getSeatColor(position: number): string {
-  const colors = ["#22c55e", "#84cc16", "#f59e0b", "#ef4444"];
-  return colors[position] || "#a1a1aa";
+  const colors = [
+    "hsl(var(--knd-cyan))",
+    "hsl(var(--knd-cyan) / 0.7)",
+    "hsl(var(--knd-amber))",
+    "hsl(var(--knd-amber) / 0.7)",
+  ];
+  return colors[position] || "hsl(var(--knd-line))";
 }
 
 function getSeatLabel(position: number): string {

@@ -9,32 +9,34 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-[#a1a1aa] hover:text-[#fafafa] text-sm mb-4 inline-block"
-          >
-            &larr; Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#c9a227] to-[#8b5cf6] bg-clip-text text-transparent">
-            About cEDH Analytics
-          </h1>
-          <p className="text-[#a1a1aa] mt-2">
-            Methodology, statistics, and technical details
-          </p>
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-border/70 bg-card/60 px-6 py-6">
+          <div className="knd-watermark absolute inset-0" />
+          <div className="relative">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Home
+            </Link>
+            <h1 className="mt-4 text-3xl font-semibold text-foreground md:text-4xl">
+              About cEDH Analytics
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Methodology, statistics, and technical details.
+            </p>
+          </div>
         </div>
 
         {/* Data Inclusion Criteria */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#c9a227]">Data Inclusion Criteria</CardTitle>
+            <CardTitle className="text-[hsl(var(--knd-amber))]">Data Inclusion Criteria</CardTitle>
           </CardHeader>
-          <CardContent className="text-[#a1a1aa] space-y-4">
-            <div className="p-4 bg-[#0a0a0a] rounded-lg border border-[#c9a227]/30">
-              <p className="text-[#fafafa] font-medium mb-2">
+          <CardContent className="text-muted-foreground space-y-4">
+            <div className="p-4 bg-muted/30 rounded-lg border border-[hsl(var(--knd-amber))]/30">
+              <p className="text-foreground font-medium mb-2">
                 All findings are based on events with 32+ players
               </p>
               <p className="text-sm">
@@ -54,9 +56,9 @@ export default function AboutPage() {
         </Card>
 
         {/* Primary Statistics */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#22c55e]">Primary Statistics</CardTitle>
+            <CardTitle className="text-primary">Primary Statistics</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <StatisticSection
@@ -80,35 +82,28 @@ export default function AboutPage() {
               example="If Sol Ring appears in 95 of 100 decks, its inclusion rate is 95%."
             />
 
-            <StatisticSection
-              title="Synergy Score"
-              formula="Synergy = Commander Inclusion Rate - Global Inclusion Rate"
-              description="Measures how much more (or less) often a card appears in a specific commander's decks compared to the global average. Positive synergy indicates the card is particularly good with that commander."
-              example="If Mystic Remora has 85% inclusion in Kinnan decks but only 60% globally, the synergy is +25%."
-            />
-
-            <div className="p-4 bg-[#0a0a0a] rounded-lg">
-              <h4 className="text-[#fafafa] font-medium mb-2">Card Tiers</h4>
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-foreground font-medium mb-2">Card Tiers</h4>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-                <div className="text-center p-2 rounded bg-green-500/20">
-                  <span className="text-green-400 font-bold">Core</span>
-                  <p className="text-[#a1a1aa]">80%+ inclusion</p>
+                <div className="text-center p-2 rounded bg-[hsl(var(--knd-cyan))]/15">
+                  <span className="text-primary font-semibold">Core</span>
+                  <p className="text-muted-foreground">80%+ inclusion</p>
                 </div>
-                <div className="text-center p-2 rounded bg-lime-500/20">
-                  <span className="text-lime-400 font-bold">Essential</span>
-                  <p className="text-[#a1a1aa]">60-79%</p>
+                <div className="text-center p-2 rounded bg-[hsl(var(--knd-cyan))]/10">
+                  <span className="text-primary font-semibold">Essential</span>
+                  <p className="text-muted-foreground">60-79%</p>
                 </div>
-                <div className="text-center p-2 rounded bg-amber-500/20">
-                  <span className="text-amber-400 font-bold">Common</span>
-                  <p className="text-[#a1a1aa]">30-59%</p>
+                <div className="text-center p-2 rounded bg-[hsl(var(--knd-amber))]/15">
+                  <span className="text-[hsl(var(--knd-amber))] font-semibold">Common</span>
+                  <p className="text-muted-foreground">30-59%</p>
                 </div>
-                <div className="text-center p-2 rounded bg-purple-500/20">
-                  <span className="text-purple-400 font-bold">Flex</span>
-                  <p className="text-[#a1a1aa]">10-29%</p>
+                <div className="text-center p-2 rounded bg-muted/40">
+                  <span className="text-muted-foreground font-semibold">Flex</span>
+                  <p className="text-muted-foreground">10-29%</p>
                 </div>
-                <div className="text-center p-2 rounded bg-red-500/20">
-                  <span className="text-red-400 font-bold">Spice</span>
-                  <p className="text-[#a1a1aa]">&lt;10%</p>
+                <div className="text-center p-2 rounded bg-muted/30">
+                  <span className="text-muted-foreground font-semibold">Spice</span>
+                  <p className="text-muted-foreground">&lt;10%</p>
                 </div>
               </div>
             </div>
@@ -116,11 +111,11 @@ export default function AboutPage() {
         </Card>
 
         {/* Survival Analysis */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#06b6d4]">Survival Analysis</CardTitle>
+            <CardTitle className="text-primary">Survival Analysis</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-[#a1a1aa]">
+          <CardContent className="space-y-4 text-muted-foreground">
             <p>
               Survival analysis tracks the probability of a player &quot;surviving&quot;
               (remaining in contention) through successive rounds of a tournament.
@@ -140,15 +135,15 @@ export default function AboutPage() {
               description="Each round's survival builds on the previous round. If 90% survive round 1 and 85% of those survive round 2, the cumulative survival at round 2 is 0.90 × 0.85 = 76.5%."
             />
 
-            <div className="p-4 bg-[#0a0a0a] rounded-lg">
-              <h4 className="text-[#fafafa] font-medium mb-2">Interpreting Survival Curves</h4>
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-foreground font-medium mb-2">Interpreting Survival Curves</h4>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 <li>
-                  <strong className="text-[#22c55e]">Steeper drop</strong> = Higher
+                  <strong className="text-primary">Steeper drop</strong> = Higher
                   elimination rate at that round
                 </li>
                 <li>
-                  <strong className="text-[#c9a227]">Flat sections</strong> = Most
+                  <strong className="text-[hsl(var(--knd-amber))]">Flat sections</strong> = Most
                   players surviving that phase
                 </li>
                 <li>
@@ -164,11 +159,11 @@ export default function AboutPage() {
         </Card>
 
         {/* Statistical Significance */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#8b5cf6]">Statistical Significance</CardTitle>
+            <CardTitle className="text-muted-foreground">Statistical Significance</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-[#a1a1aa]">
+          <CardContent className="space-y-4 text-muted-foreground">
             <p>
               Not all observed differences are meaningful. Statistical significance
               helps us determine whether an observed effect (like a commander&apos;s
@@ -180,22 +175,22 @@ export default function AboutPage() {
               description="We require minimum sample sizes before drawing conclusions. A commander with 5 entries and a 60% win rate is far less reliable than one with 500 entries and a 28% win rate."
             />
 
-            <div className="p-4 bg-[#0a0a0a] rounded-lg">
-              <h4 className="text-[#fafafa] font-medium mb-2">Confidence Levels</h4>
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-foreground font-medium mb-2">Confidence Levels</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-3">
-                  <span className="text-[#c9a227]">★</span>
-                  <span className="text-[#22c55e] font-medium w-20">High</span>
+                  <span className="text-[hsl(var(--knd-amber))]">★</span>
+                  <span className="text-primary font-medium w-20">High</span>
                   <span>100+ games - Strong statistical confidence</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[#a1a1aa]">★</span>
-                  <span className="text-[#c9a227] font-medium w-20">Medium</span>
+                  <span className="text-muted-foreground">★</span>
+                  <span className="text-[hsl(var(--knd-amber))] font-medium w-20">Medium</span>
                   <span>30-99 games - Moderate confidence, interpret with caution</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[#a1a1aa]/50">★</span>
-                  <span className="text-[#ef4444] font-medium w-20">Low</span>
+                  <span className="text-muted-foreground/50">★</span>
+                  <span className="text-[hsl(var(--knd-amber))] font-medium w-20">Low</span>
                   <span>10-29 games - Low confidence, high variance expected</span>
                 </div>
               </div>
@@ -210,11 +205,11 @@ export default function AboutPage() {
         </Card>
 
         {/* Chi-Square Test */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#ef4444]">Chi-Square Test</CardTitle>
+            <CardTitle className="text-[hsl(var(--knd-amber))]">Chi-Square Test</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-[#a1a1aa]">
+          <CardContent className="space-y-4 text-muted-foreground">
             <p>
               The Chi-square (χ²) test is used to determine whether observed
               frequencies differ significantly from expected frequencies. We use
@@ -228,8 +223,8 @@ export default function AboutPage() {
               example="If seat 1 has 28% wins (expected 25%), and we have 1000 games, χ² contribution = (280-250)²/250 = 3.6"
             />
 
-            <div className="p-4 bg-[#0a0a0a] rounded-lg">
-              <h4 className="text-[#fafafa] font-medium mb-2">Turn Order Analysis</h4>
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-foreground font-medium mb-2">Turn Order Analysis</h4>
               <p className="text-sm mb-3">
                 We use chi-square tests to determine if turn order creates a
                 statistically significant advantage:
@@ -255,11 +250,11 @@ export default function AboutPage() {
         </Card>
 
         {/* Trap and Spice Methodology */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#f59e0b]">Trap &amp; Spice Analysis</CardTitle>
+            <CardTitle className="text-[hsl(var(--knd-amber))]">Trap &amp; Spice Analysis</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-[#a1a1aa]">
+          <CardContent className="space-y-4 text-muted-foreground">
             <StatisticSection
               title="Trap Score"
               formula="Trap Score = Inclusion Rate × |Baseline WR - Card WR|"
@@ -272,8 +267,8 @@ export default function AboutPage() {
               description="Hidden gems are cards with &lt;10% inclusion but significantly above-baseline win rates. These rarely-played cards may offer competitive advantages that the meta hasn't discovered yet."
             />
 
-            <div className="p-4 bg-[#0a0a0a] rounded-lg border border-[#f59e0b]/30">
-              <h4 className="text-[#fafafa] font-medium mb-2">Important Caveats</h4>
+            <div className="p-4 bg-muted/30 rounded-lg border border-[hsl(var(--knd-amber))]/30">
+              <h4 className="text-foreground font-medium mb-2">Important Caveats</h4>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 <li>
                   <strong>Correlation ≠ Causation:</strong> A card&apos;s correlation
@@ -297,9 +292,9 @@ export default function AboutPage() {
         </Card>
 
         {/* Technology Stack */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8">
           <CardHeader>
-            <CardTitle className="text-[#fafafa]">Technology Stack</CardTitle>
+            <CardTitle className="text-foreground">Technology Stack</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -343,11 +338,11 @@ export default function AboutPage() {
         </Card>
 
         {/* Contact / Contributing */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+        <Card className="bg-card/60 border-border/60">
           <CardHeader>
-            <CardTitle className="text-[#fafafa]">Questions &amp; Feedback</CardTitle>
+            <CardTitle className="text-foreground">Questions &amp; Feedback</CardTitle>
           </CardHeader>
-          <CardContent className="text-[#a1a1aa]">
+          <CardContent className="text-muted-foreground">
             <p className="mb-4">
               Have questions about the methodology or found an issue with the data?
               We welcome feedback and contributions.
@@ -355,7 +350,7 @@ export default function AboutPage() {
             <div className="flex gap-4">
               <Link
                 href="https://github.com"
-                className="px-4 py-2 bg-[#0a0a0a] border border-[#2a2a2a] rounded-md hover:border-[#c9a227] transition-colors"
+                className="px-4 py-2 bg-muted/30 border border-border/60 rounded-md hover:border-primary/40 transition-colors"
               >
                 View on GitHub
               </Link>
@@ -379,16 +374,16 @@ function StatisticSection({
   example?: string;
 }) {
   return (
-    <div className="border-l-2 border-[#2a2a2a] pl-4">
-      <h4 className="text-[#fafafa] font-medium mb-1">{title}</h4>
+    <div className="border-l-2 border-border/60 pl-4">
+      <h4 className="text-foreground font-medium mb-1">{title}</h4>
       {formula && (
-        <code className="block text-sm text-[#c9a227] bg-[#0a0a0a] px-2 py-1 rounded mb-2 font-mono">
+        <code className="block text-sm text-[hsl(var(--knd-amber))] bg-muted/30 px-2 py-1 rounded mb-2 font-mono">
           {formula}
         </code>
       )}
-      <p className="text-sm text-[#a1a1aa]">{description}</p>
+      <p className="text-sm text-muted-foreground">{description}</p>
       {example && (
-        <p className="text-sm text-[#71717a] mt-2 italic">Example: {example}</p>
+        <p className="text-sm text-muted-foreground/70 mt-2 italic">Example: {example}</p>
       )}
     </div>
   );
@@ -402,13 +397,13 @@ function TechCard({
   items: { name: string; desc: string }[];
 }) {
   return (
-    <div className="p-4 bg-[#0a0a0a] rounded-lg">
-      <h4 className="text-[#fafafa] font-medium mb-3">{title}</h4>
+    <div className="p-4 bg-muted/30 rounded-lg">
+      <h4 className="text-foreground font-medium mb-3">{title}</h4>
       <ul className="space-y-2">
         {items.map((item) => (
           <li key={item.name} className="text-sm">
-            <span className="text-[#c9a227] font-medium">{item.name}</span>
-            <span className="text-[#a1a1aa]"> - {item.desc}</span>
+            <span className="text-[hsl(var(--knd-amber))] font-medium">{item.name}</span>
+            <span className="text-muted-foreground"> - {item.desc}</span>
           </li>
         ))}
       </ul>
