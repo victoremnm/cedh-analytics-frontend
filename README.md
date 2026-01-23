@@ -1,20 +1,34 @@
 # cEDH Analytics Frontend
 
-A Next.js dashboard for cEDH analytics with a restrained Kamigawa: Neon Dynasty-inspired aesthetic. The focus is on clarity, density, and fast scanning while keeping the UI cinematic and minimal.
+A data-driven dashboard for cEDH players who want sharper reads on the meta. Track commander performance, card inclusion pressure, and tournament trends with a clean, Kamigawa: Neon Dynasty-inspired interface.
 
-## Highlights
+## What you can do
 
-- Console-style layout with charts, tables, and KPI cards
-- Muted neon palette (cyan + amber) with high-contrast surfaces
-- Data-first hierarchy: hero → snapshot → charts → performance table → quick links
+- Explore commander rankings and performance deltas
+- Compare conversion rates (Top 16 / Top Cut)
+- Analyze seat position advantage
+- Track survival trends across tournament rounds
 
-## Development
+## Local development
 
 ```bash
 npm run dev -- --port 4322 --hostname 127.0.0.1
 ```
 
-Open `http://127.0.0.1:4322/` to view the home dashboard.
+Open `http://127.0.0.1:4322/` and jump straight into the dashboard.
+
+## Tech stack
+
+- Next.js (App Router)
+- Supabase for data access
+- Tailwind CSS v4
+- Recharts for visualizations
+
+## Roadmap ideas
+
+- Add card art thumbnails for top commanders
+- Mini archetype badges (Turbo, Midrange, Stax, Control)
+- Event map view for regional meta heat
 
 ## Repository
 

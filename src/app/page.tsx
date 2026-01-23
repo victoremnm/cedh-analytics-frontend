@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
+import { normalizeDisplayString } from "@/lib/utils";
 import Link from "next/link";
 
 // Force dynamic rendering - fetch fresh data on each request
@@ -34,7 +35,7 @@ async function getStats() {
           .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
           .gt("total_entries", 20)
           .order("total_entries", { ascending: false })
-          .limit(10),
+          .limit(15),
         supabase
           .from("commander_stats")
           .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
@@ -85,7 +86,7 @@ export default async function Home() {
         <header className="flex flex-col gap-6 border-b border-border/60 pb-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Analytics Console</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Analytics</p>
               <h1 className="text-3xl font-semibold text-foreground md:text-4xl">cEDH Analytics</h1>
             </div>
             <nav className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -124,9 +125,6 @@ export default async function Home() {
         <section className="mt-10 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <div className="space-y-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Spirit-tech operations
-              </p>
               <h2 className="text-4xl font-semibold leading-tight text-foreground md:text-5xl">
                 A clean command layer for competitive Commander analytics.
               </h2>
@@ -192,7 +190,7 @@ export default async function Home() {
                             className="max-w-[220px] truncate text-sm font-medium text-foreground hover:text-primary"
                             href={`/commanders/${commander.commander_id}`}
                           >
-                            {commander.commander_name}
+                            {normalizeDisplayString(commander.commander_name)}
                           </Link>
                         </div>
                       </TableCell>
@@ -319,7 +317,9 @@ function CommanderRow({
           ))}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{commander.commander_name}</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {normalizeDisplayString(commander.commander_name)}
+          </p>
           <p className="text-xs text-muted-foreground">{commander.total_entries} entries</p>
         </div>
       </div>

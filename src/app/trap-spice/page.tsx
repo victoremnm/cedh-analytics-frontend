@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { normalizeDisplayString } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -171,40 +172,42 @@ export default function TrapSpicePage() {
   const hasMoreSpice = paginatedSpiceCards.length < filteredSpiceCards.length;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-[#a1a1aa] hover:text-[#fafafa] text-sm mb-4 inline-block"
-          >
-            ← Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#ef4444] to-[#22c55e] bg-clip-text text-transparent">
-            Trap & Spice Cards
-          </h1>
-          <p className="text-[#a1a1aa] mt-2">
-            Find overrated cards to cut and hidden gems to try
-          </p>
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-border/70 bg-card/60 px-6 py-6">
+          <div className="knd-watermark absolute inset-0" />
+          <div className="relative">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Home
+            </Link>
+            <h1 className="mt-4 text-3xl font-semibold text-foreground md:text-4xl">
+              Trap & Spice Cards
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Find overrated cards to cut and hidden gems to try.
+            </p>
+          </div>
         </div>
 
         {/* Commander Filter */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-6">
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <label className="text-[#a1a1aa] text-sm font-medium whitespace-nowrap">
+              <label className="text-muted-foreground text-sm font-medium whitespace-nowrap">
                 Filter by Commander:
               </label>
               <select
                 value={selectedCommander}
                 onChange={(e) => setSelectedCommander(e.target.value)}
-                className="flex-1 max-w-md bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-3 py-2 text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#c9a227]"
+                className="knd-input flex-1 max-w-md"
               >
                 <option value="">All Commanders (Global)</option>
                 {commanders.map((c) => (
                   <option key={c.commander_id} value={c.commander_id}>
-                    {c.commander_name} ({c.total_entries} entries)
+                    {normalizeDisplayString(c.commander_name)} ({c.total_entries} entries)
                   </option>
                 ))}
               </select>
@@ -213,7 +216,6 @@ export default function TrapSpicePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setSelectedCommander("")}
-                  className="bg-[#1a1a1a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
                 >
                   Clear Filter
                 </Button>
@@ -223,24 +225,24 @@ export default function TrapSpicePage() {
         </Card>
 
         {/* Explanation */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-8">
+        <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-bold text-[#ef4444] mb-2">
+                <h3 className="text-lg font-bold text-[hsl(var(--knd-amber))] mb-2">
                   Trap Cards
                 </h3>
-                <p className="text-[#a1a1aa] text-sm">
+                <p className="text-muted-foreground text-sm">
                   Popular cards that underperform. These have high inclusion rates but
                   below-average win rates. Consider cutting them from your deck despite
                   their popularity.
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#22c55e] mb-2">
+                <h3 className="text-lg font-bold text-primary mb-2">
                   Spice Cards
                 </h3>
-                <p className="text-[#a1a1aa] text-sm">
+                <p className="text-muted-foreground text-sm">
                   Hidden gems with low inclusion but high win rates. These rarely-played
                   cards overperform when included. Consider trying them in your deck.
                 </p>
@@ -250,25 +252,25 @@ export default function TrapSpicePage() {
         </Card>
 
         {loading ? (
-          <div className="text-center py-12 text-[#a1a1aa]">Loading...</div>
+          <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : (
           <>
             {/* Two-panel layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Trap Cards Panel */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#ef4444]">
+            <Card className="bg-card/60 border-border/60 border-l-4 border-l-[hsl(var(--knd-amber))]">
                 <CardHeader>
-                  <CardTitle className="text-[#ef4444] flex items-center gap-2">
+                  <CardTitle className="text-[hsl(var(--knd-amber))] flex items-center gap-2">
                     Trap Cards ({filteredTrapCards.length})
                   </CardTitle>
-                  <p className="text-[#a1a1aa] text-sm">
+                  <p className="text-muted-foreground text-sm">
                     Popular cards with below-average win rates
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {paginatedTrapCards.length === 0 ? (
-                      <p className="text-[#a1a1aa] text-sm">
+                      <p className="text-muted-foreground text-sm">
                         No trap cards found for this commander.
                       </p>
                     ) : (
@@ -284,7 +286,7 @@ export default function TrapSpicePage() {
                     {hasMoreTraps && (
                       <Button
                         variant="outline"
-                        className="w-full bg-[#0a0a0a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                        className="w-full bg-muted/30 border-border/60 text-foreground hover:bg-muted/40"
                         onClick={() => setTrapPage((p) => p + 1)}
                       >
                         Show More ({filteredTrapCards.length - paginatedTrapCards.length} remaining)
@@ -295,19 +297,19 @@ export default function TrapSpicePage() {
               </Card>
 
               {/* Spice Cards Panel */}
-              <Card className="bg-[#1a1a1a] border-[#2a2a2a] border-l-4 border-l-[#22c55e]">
+            <Card className="bg-card/60 border-border/60 border-l-4 border-l-[hsl(var(--knd-cyan))]">
                 <CardHeader>
-                  <CardTitle className="text-[#22c55e] flex items-center gap-2">
+                  <CardTitle className="text-primary flex items-center gap-2">
                     Spice Cards ({filteredSpiceCards.length})
                   </CardTitle>
-                  <p className="text-[#a1a1aa] text-sm">
+                  <p className="text-muted-foreground text-sm">
                     Hidden gems with above-average win rates
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {paginatedSpiceCards.length === 0 ? (
-                      <p className="text-[#a1a1aa] text-sm">
+                      <p className="text-muted-foreground text-sm">
                         No spice cards found for this commander.
                       </p>
                     ) : (
@@ -323,7 +325,7 @@ export default function TrapSpicePage() {
                     {hasMoreSpice && (
                       <Button
                         variant="outline"
-                        className="w-full bg-[#0a0a0a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                        className="w-full bg-muted/30 border-border/60 text-foreground hover:bg-muted/40"
                         onClick={() => setSpicePage((p) => p + 1)}
                       >
                         Show More ({filteredSpiceCards.length - paginatedSpiceCards.length} remaining)
@@ -335,17 +337,17 @@ export default function TrapSpicePage() {
             </div>
 
             {/* Methodology Note */}
-            <Card className="bg-[#1a1a1a] border-[#2a2a2a] mt-8">
+            <Card className="bg-card/60 border-border/60 mt-8">
               <CardHeader>
-                <CardTitle className="text-[#fafafa]">Methodology</CardTitle>
+                <CardTitle className="text-foreground">Methodology</CardTitle>
               </CardHeader>
-              <CardContent className="text-[#a1a1aa] space-y-2">
+              <CardContent className="text-muted-foreground space-y-2">
                 <p>
-                  <strong className="text-[#ef4444]">Trap Score</strong> = Inclusion Rate ×
+                  <strong className="text-[hsl(var(--knd-amber))]">Trap Score</strong> = Inclusion Rate ×
                   |Baseline Win Rate - Card Win Rate| for cards with negative delta
                 </p>
                 <p>
-                  <strong className="text-[#22c55e]">Spice Cards</strong> are filtered for cards
+                  <strong className="text-primary">Spice Cards</strong> are filtered for cards
                   with &lt;10% inclusion but significant positive win rate delta
                 </p>
                 <p className="text-sm italic">
@@ -374,31 +376,34 @@ function CardWithCommanders({
   const delta = parseFloat(card.win_rate_delta) * 100;
   const winRate = parseFloat(card.avg_win_rate) * 100;
   const inclusionRate = parseFloat(card.inclusion_rate) * 100;
-  const color = type === "trap" ? "#ef4444" : "#22c55e";
+  const deltaClass =
+    type === "trap" ? "text-[hsl(var(--knd-amber))]" : "text-primary";
 
   return (
-    <div className="p-3 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a]">
+    <div className="p-3 rounded-lg bg-muted/30 border border-border/60">
       {/* Card Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <a
-            href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
+            href={`https://scryfall.com/search?q=${encodeURIComponent(
+              normalizeDisplayString(card.card_name)
+            )}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium hover:text-[#c9a227] transition-colors"
+            className="font-medium hover:text-primary transition-colors"
           >
-            {card.card_name}
+            {normalizeDisplayString(card.card_name)}
           </a>
-          <p className="text-xs text-[#a1a1aa] mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             {card.deck_count} decks · {card.commander_count} commanders
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="font-mono font-bold" style={{ color }}>
+          <p className={`font-mono font-bold ${deltaClass}`}>
             {type === "spice" && delta > 0 ? "+" : ""}
             {delta.toFixed(2)}%
           </p>
-          <p className="text-xs text-[#a1a1aa]">
+          <p className="text-xs text-muted-foreground">
             {winRate.toFixed(1)}% WR · {inclusionRate.toFixed(0)}% incl
           </p>
         </div>
@@ -406,8 +411,8 @@ function CardWithCommanders({
 
       {/* Commander Breakdown */}
       {card.top_commanders && card.top_commanders.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
-          <p className="text-xs text-[#a1a1aa] mb-2">Top commanders using this card:</p>
+        <div className="mt-3 pt-3 border-t border-border/60">
+          <p className="text-xs text-muted-foreground mb-2">Top commanders using this card:</p>
           <div className="flex flex-wrap gap-2">
             {card.top_commanders.map((commander) => (
               <Link
@@ -415,14 +420,14 @@ function CardWithCommanders({
                 href={`/commanders/${commander.commander_id}`}
                 className={`text-xs px-2 py-1 rounded transition-colors ${
                   highlightCommander === commander.commander_id
-                    ? "bg-[#c9a227] text-[#0a0a0a]"
-                    : "bg-[#1a1a1a] hover:bg-[#252525]"
+                    ? "bg-[hsl(var(--knd-amber))] text-background"
+                    : "bg-card/60 hover:bg-muted/40"
                 }`}
               >
-                <span className={highlightCommander === commander.commander_id ? "text-[#0a0a0a]" : "text-[#fafafa]"}>
-                  {commander.commander.split(" / ")[0]}
+                <span className={highlightCommander === commander.commander_id ? "text-background" : "text-foreground"}>
+                  {normalizeDisplayString(commander.commander).split(" / ")[0]}
                 </span>
-                <span className={`ml-1 ${highlightCommander === commander.commander_id ? "text-[#0a0a0a]/70" : "text-[#a1a1aa]"}`}>
+                <span className={`ml-1 ${highlightCommander === commander.commander_id ? "text-background/70" : "text-muted-foreground"}`}>
                   ({commander.deck_count})
                 </span>
               </Link>

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { normalizeDisplayString } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,9 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 interface GlobalCardFrequency {
   card_name: string;
@@ -56,8 +57,6 @@ export default function CardsPage() {
       }
 
       const cardData = data as GlobalCardFrequency[];
-
-      // Get commander usage for top 200 cards
       const topCardNames = cardData.slice(0, 200).map((c) => c.card_name);
       const commanderUsage = await getCommanderUsageForCards(topCardNames);
 
@@ -104,7 +103,6 @@ export default function CardsPage() {
     return usageMap;
   }
 
-  // Filter cards
   const filteredCards = cards.filter((card) => {
     const matchesTier = tierFilter === "all" || card.tier === tierFilter;
     const matchesSearch =
@@ -113,11 +111,9 @@ export default function CardsPage() {
     return matchesTier && matchesSearch;
   });
 
-  // Paginated cards
   const displayedCards = filteredCards.slice(0, displayCount);
   const hasMore = displayCount < filteredCards.length;
 
-  // Tier counts
   const tierCounts = {
     core: cards.filter((c) => c.tier === "core").length,
     essential: cards.filter((c) => c.tier === "essential").length,
@@ -127,39 +123,44 @@ export default function CardsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-[#a1a1aa] hover:text-[#fafafa] text-sm mb-4 inline-block"
-          >
-            ← Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#c9a227] to-[#8b5cf6] bg-clip-text text-transparent">
-            Card Frequency Analysis
-          </h1>
-          <p className="text-[#a1a1aa] mt-2">
-            Global inclusion rates across {cards[0]?.total_decks?.toLocaleString() || 0} analyzed decklists
-          </p>
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-border/70 bg-card/60 px-6 py-6">
+          <div className="knd-watermark absolute inset-0" />
+          <div className="relative">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Home
+            </Link>
+            <h1 className="mt-4 text-3xl font-semibold text-foreground md:text-4xl">
+              Card Frequency Analysis
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Global inclusion rates across {cards[0]?.total_decks?.toLocaleString() || 0} analyzed decklists.
+            </p>
+          </div>
         </div>
 
-        {/* Tier Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <TierCard tier="Core" count={tierCounts.core} description="80%+" color="#22c55e" />
-          <TierCard tier="Essential" count={tierCounts.essential} description="60-79%" color="#84cc16" />
-          <TierCard tier="Common" count={tierCounts.common} description="30-59%" color="#f59e0b" />
-          <TierCard tier="Flex" count={tierCounts.flex} description="10-29%" color="#8b5cf6" />
-          <TierCard tier="Spice" count={tierCounts.spice} description="<10%" color="#ef4444" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5 mb-8">
+          <TierCard tier="Core" count={tierCounts.core} description="80%+" tone="primary" />
+          <TierCard tier="Essential" count={tierCounts.essential} description="60-79%" tone="primary" muted />
+          <TierCard tier="Common" count={tierCounts.common} description="30-59%" tone="amber" />
+          <TierCard tier="Flex" count={tierCounts.flex} description="10-29%" tone="neutral" />
+          <TierCard tier="Spice" count={tierCounts.spice} description="<10%" tone="neutral" muted />
         </div>
 
-        {/* Filters */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a] mb-6">
+        <Card className="mb-6">
+          <CardHeader className="knd-panel-header">
+            <CardTitle className="text-lg">Filters</CardTitle>
+          </CardHeader>
           <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex-1">
-                <label className="text-[#a1a1aa] text-sm mb-2 block">Search Cards</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Search Cards
+                </label>
                 <input
                   type="text"
                   value={searchQuery}
@@ -168,18 +169,20 @@ export default function CardsPage() {
                     setDisplayCount(ITEMS_PER_PAGE);
                   }}
                   placeholder="Search by card name..."
-                  className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-3 py-2 text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#c9a227]"
+                  className="knd-input mt-2"
                 />
               </div>
               <div>
-                <label className="text-[#a1a1aa] text-sm mb-2 block">Filter by Tier</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Filter by Tier
+                </label>
                 <select
                   value={tierFilter}
                   onChange={(e) => {
                     setTierFilter(e.target.value);
                     setDisplayCount(ITEMS_PER_PAGE);
                   }}
-                  className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-3 py-2 text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#c9a227]"
+                  className="knd-input mt-2"
                 >
                   <option value="all">All Tiers</option>
                   <option value="core">Core (80%+)</option>
@@ -193,101 +196,97 @@ export default function CardsPage() {
           </CardContent>
         </Card>
 
-        {/* Cards Table */}
-        <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-          <CardHeader>
-            <CardTitle className="text-[#fafafa]">
-              {tierFilter === "all" ? "All Cards" : `${tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)} Cards`}{" "}
+        <Card>
+          <CardHeader className="knd-panel-header">
+            <CardTitle className="text-lg">
+              {tierFilter === "all"
+                ? "All Cards"
+                : `${tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)} Cards`}{" "}
               ({filteredCards.length.toLocaleString()})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-12 text-[#a1a1aa]">Loading...</div>
+              <div className="text-center py-12 text-muted-foreground">Loading...</div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-[#2a2a2a] hover:bg-[#1a1a1a]">
-                        <TableHead className="text-[#a1a1aa]">Rank</TableHead>
-                        <TableHead className="text-[#a1a1aa]">Card Name</TableHead>
-                        <TableHead className="text-[#a1a1aa]">Tier</TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">Inclusion</TableHead>
-                        <TableHead className="text-[#a1a1aa] text-right">Decks</TableHead>
-                        <TableHead className="text-[#a1a1aa]">Top Commanders</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayedCards.map((card, index) => (
-                        <TableRow
-                          key={card.card_name}
-                          className="border-[#2a2a2a] hover:bg-[#252525]"
-                        >
-                          <TableCell className="font-mono text-[#a1a1aa]">
-                            #{index + 1}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <a
-                              href={`https://scryfall.com/search?q=${encodeURIComponent(card.card_name)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:text-[#c9a227] transition-colors"
-                            >
-                              {card.card_name}
-                            </a>
-                          </TableCell>
-                          <TableCell>
-                            <TierBadge tier={card.tier} />
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            <InclusionBar rate={parseFloat(card.inclusion_rate)} />
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-[#a1a1aa]">
-                            {card.deck_count.toLocaleString()}
-                          </TableCell>
-                          <TableCell>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Card Name</TableHead>
+                      <TableHead>Tier</TableHead>
+                      <TableHead className="text-right">Inclusion</TableHead>
+                      <TableHead className="text-right">Decks</TableHead>
+                      <TableHead>Top Commanders</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedCards.map((card, index) => (
+                      <TableRow key={card.card_name} className="border-border/60">
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          #{index + 1}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <a
+                            href={`https://scryfall.com/search?q=${encodeURIComponent(
+                              normalizeDisplayString(card.card_name)
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-foreground hover:text-primary"
+                          >
+                            {normalizeDisplayString(card.card_name)}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <TierBadge tier={card.tier} />
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {(parseFloat(card.inclusion_rate) * 100).toFixed(1)}%
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {card.deck_count.toLocaleString()}/{card.total_decks.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-2">
                             {card.top_commanders && card.top_commanders.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {card.top_commanders.map((commander) => (
-                                  <Link
-                                    key={commander.commander_id}
-                                    href={`/commanders/${commander.commander_id}`}
-                                    className="text-xs px-1.5 py-0.5 rounded bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors truncate max-w-[120px]"
-                                    title={`${commander.commander} (${commander.deck_count} decks)`}
-                                  >
-                                    {commander.commander.split(" / ")[0]}
-                                  </Link>
-                                ))}
-                                {card.commander_count > 3 && (
-                                  <span className="text-xs text-[#a1a1aa] px-1">
-                                    +{card.commander_count - 3}
-                                  </span>
-                                )}
-                              </div>
+                              card.top_commanders.map((commander) => (
+                                <Link
+                                  key={commander.commander_id}
+                                  href={`/commanders/${commander.commander_id}`}
+                                  className="rounded-full border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                  title={`${commander.deck_count} decks`}
+                                >
+                                  {normalizeDisplayString(commander.commander)}
+                                </Link>
+                              ))
                             ) : (
-                              <span className="text-[#a1a1aa] text-xs">{card.commander_count} commanders</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {hasMore && (
-                  <div className="flex flex-col items-center gap-2 mt-6 pt-4 border-t border-[#2a2a2a]">
-                    <p className="text-[#a1a1aa] text-sm">
-                      Showing {displayedCards.length.toLocaleString()} of {filteredCards.length.toLocaleString()} cards
-                    </p>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {card.commander_count} commanders
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <div className="flex flex-col items-center gap-2 mt-6 pt-4 border-t border-border/60">
+                  <p className="text-muted-foreground text-sm">
+                    Showing {displayedCards.length} of {filteredCards.length} cards
+                  </p>
+                  {hasMore && (
                     <Button
-                      variant="outline"
-                      onClick={() => setDisplayCount((c) => c + ITEMS_PER_PAGE)}
-                      className="bg-[#1a1a1a] border-[#2a2a2a] text-[#fafafa] hover:bg-[#252525]"
+                      onClick={() => setDisplayCount(displayCount + ITEMS_PER_PAGE)}
+                      className="border-border/70 bg-muted/30 text-foreground hover:bg-muted/40"
                     >
                       Load More
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </>
             )}
           </CardContent>
@@ -301,22 +300,29 @@ function TierCard({
   tier,
   count,
   description,
-  color,
+  tone,
+  muted = false,
 }: {
   tier: string;
   count: number;
   description: string;
-  color: string;
+  tone: "primary" | "amber" | "neutral";
+  muted?: boolean;
 }) {
+  const toneMap: Record<typeof tone, string> = {
+    primary: "text-primary",
+    amber: "text-[hsl(var(--knd-amber))]",
+    neutral: "text-muted-foreground",
+  };
+
   return (
-    <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-          <span className="font-medium" style={{ color }}>{tier}</span>
-        </div>
-        <p className="text-2xl font-bold font-mono text-[#fafafa]">{count}</p>
-        <p className="text-xs text-[#a1a1aa]">{description} inclusion</p>
+    <Card>
+      <CardContent className="pt-6">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{tier}</p>
+        <p className={`text-2xl font-semibold ${muted ? "text-muted-foreground" : toneMap[tone]}`}>
+          {count}
+        </p>
+        <p className="text-xs text-muted-foreground">{description} inclusion</p>
       </CardContent>
     </Card>
   );
@@ -324,44 +330,19 @@ function TierCard({
 
 function TierBadge({ tier }: { tier: string }) {
   const tierColors: Record<string, string> = {
-    core: "bg-green-500/20 text-green-400 border-green-500/30",
-    essential: "bg-lime-500/20 text-lime-400 border-lime-500/30",
-    common: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-    flex: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-    spice: "bg-red-500/20 text-red-400 border-red-500/30",
+    core: "bg-[hsl(var(--knd-cyan))]/15 text-primary border-primary/30",
+    essential: "bg-[hsl(var(--knd-cyan))]/10 text-primary border-primary/20",
+    common: "bg-[hsl(var(--knd-amber))]/15 text-[hsl(var(--knd-amber))] border-[hsl(var(--knd-amber))]/30",
+    flex: "bg-muted/40 text-muted-foreground border-border/60",
+    spice: "bg-muted/30 text-muted-foreground border-border/40",
   };
 
   return (
-    <Badge variant="outline" className={tierColors[tier] || "bg-gray-500/20 text-gray-400"}>
+    <Badge
+      variant="outline"
+      className={tierColors[tier] || "bg-muted/30 text-muted-foreground border-border/40"}
+    >
       {tier}
     </Badge>
-  );
-}
-
-function InclusionBar({ rate }: { rate: number }) {
-  const percentage = rate * 100;
-  const color =
-    percentage >= 80
-      ? "#22c55e"
-      : percentage >= 60
-      ? "#84cc16"
-      : percentage >= 30
-      ? "#f59e0b"
-      : percentage >= 10
-      ? "#8b5cf6"
-      : "#ef4444";
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${percentage}%`, backgroundColor: color }}
-        />
-      </div>
-      <span style={{ color }} className="w-14 text-right">
-        {percentage.toFixed(1)}%
-      </span>
-    </div>
   );
 }
