@@ -159,15 +159,21 @@ async function getRecentFinishes(commanderId: string) {
   }
 
   const finishes = (data || [])
-    .filter((row) => row.tournaments)
-    .map((row) => ({
-      id: row.id,
-      final_standing: row.final_standing,
-      made_top_cut: row.made_top_cut,
-      made_top_16: row.made_top_16,
-      decklist_url: row.decklist_url,
-      tournament: row.tournaments,
-    })) as RecentFinish[];
+    .map((row) => {
+      const tournament = Array.isArray(row.tournaments)
+        ? row.tournaments[0]
+        : row.tournaments;
+      if (!tournament) return null;
+      return {
+        id: row.id,
+        final_standing: row.final_standing,
+        made_top_cut: row.made_top_cut,
+        made_top_16: row.made_top_16,
+        decklist_url: row.decklist_url,
+        tournament,
+      } as RecentFinish;
+    })
+    .filter((row): row is RecentFinish => row !== null);
 
   finishes.sort((a, b) => {
     const dateA = new Date(a.tournament.start_date).getTime();
