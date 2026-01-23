@@ -164,6 +164,7 @@ async function getRecentFinishes(commanderId: string) {
       const tournament = Array.isArray(row.tournaments)
         ? row.tournaments[0]
         : row.tournaments;
+      const player = Array.isArray(row.players) ? row.players[0] : row.players;
       if (!tournament) return null;
       return {
         id: row.id,
@@ -171,7 +172,7 @@ async function getRecentFinishes(commanderId: string) {
         made_top_cut: row.made_top_cut,
         made_top_16: row.made_top_16,
         decklist_url: row.decklist_url,
-        player_handle: row.players?.topdeck_handle ?? null,
+        player_handle: player?.topdeck_handle ?? null,
         tournament,
       } as RecentFinish;
     })
