@@ -80,11 +80,13 @@ function compareValues(a: CommanderStat, b: CommanderStat, key: SortKey) {
 function SortButton({
   label,
   active,
+  direction,
   onClick,
   align = "left",
 }: {
   label: string;
   active: boolean;
+  direction: SortDirection;
   onClick: () => void;
   align?: "left" | "right";
 }) {
@@ -98,7 +100,7 @@ function SortButton({
     >
       <span>{label}</span>
       <span className={`text-[10px] ${active ? "text-foreground" : "text-muted-foreground"}`}>
-        ▾
+        {active && direction === "asc" ? "▴" : "▾"}
       </span>
     </button>
   );
@@ -128,8 +130,14 @@ export default function CommandersTable({
   }, [commanders, sortDirection, sortKey]);
 
   function handleSort(nextKey: SortKey) {
-    setSortDirection("desc");
-    setSortKey(nextKey);
+    if (sortKey === nextKey) {
+      // Toggle direction if clicking same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Default to desc for new column
+      setSortDirection("desc");
+      setSortKey(nextKey);
+    }
   }
 
   return (
@@ -146,6 +154,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Commander"
                   active={sortKey === "commander"}
+                  direction={sortDirection}
                   onClick={() => handleSort("commander")}
                 />
               </TableHead>
@@ -153,6 +162,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Entries"
                   active={sortKey === "entries"}
+                  direction={sortDirection}
                   onClick={() => handleSort("entries")}
                   align="right"
                 />
@@ -161,6 +171,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Tournaments"
                   active={sortKey === "tournaments"}
+                  direction={sortDirection}
                   onClick={() => handleSort("tournaments")}
                   align="right"
                 />
@@ -169,6 +180,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Win Rate"
                   active={sortKey === "winRate"}
+                  direction={sortDirection}
                   onClick={() => handleSort("winRate")}
                   align="right"
                 />
@@ -177,6 +189,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Top 16 Rate"
                   active={sortKey === "top16"}
+                  direction={sortDirection}
                   onClick={() => handleSort("top16")}
                   align="right"
                 />
@@ -185,6 +198,7 @@ export default function CommandersTable({
                 <SortButton
                   label="Top Cut Rate"
                   active={sortKey === "topCut"}
+                  direction={sortDirection}
                   onClick={() => handleSort("topCut")}
                   align="right"
                 />
@@ -235,7 +249,7 @@ export default function CommandersTable({
                       {winRate.toFixed(1)}%
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-[hsl(var(--knd-amber))]">
+                  <TableCell className="text-right font-mono text-muted-foreground">
                     {(parseFloat(commander.conversion_rate_top_16) * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell className="text-right font-mono text-muted-foreground">

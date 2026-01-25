@@ -264,22 +264,6 @@ export default function SurvivalClient() {
               <Card className="bg-card/60 border-border/60">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-muted-foreground text-sm font-medium">
-                    Global Median Survival
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-primary">
-                    {globalMedian ? `Round ${globalMedian}` : "N/A"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    50% of players have lost by this round
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/60 border-border/60">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-muted-foreground text-sm font-medium">
                     Round 1 Survival
                   </CardTitle>
                 </CardHeader>
@@ -298,11 +282,27 @@ export default function SurvivalClient() {
               <Card className="bg-card/60 border-border/60">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-muted-foreground text-sm font-medium">
+                    Global Median Survival
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-muted-foreground">
+                    {globalMedian ? `Round ${globalMedian}` : "N/A"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    50% of players have lost by this round
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card/60 border-border/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-muted-foreground text-sm font-medium">
                     75th Percentile Drop
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[hsl(var(--knd-amber))]">
+                  <p className="text-3xl font-bold text-muted-foreground">
                     {get75thPercentileRound(globalSurvival)
                       ? `Round ${get75thPercentileRound(globalSurvival)}`
                       : "N/A"}
@@ -431,9 +431,9 @@ export default function SurvivalClient() {
 function SeatSurvivalChart({ data, maxRounds }: { data: SeatSurvivalPoint[]; maxRounds: number }) {
   const seatColors = [
     "hsl(var(--knd-cyan))",
-    "hsl(var(--knd-cyan) / 0.7)",
-    "hsl(var(--knd-amber))",
-    "hsl(var(--knd-amber) / 0.7)",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
   ];
   const seatLabels = ["Seat 1 (First)", "Seat 2 (Second)", "Seat 3 (Third)", "Seat 4 (Fourth)"];
 
@@ -544,7 +544,7 @@ function GlobalSurvivalChart({ data, maxRounds }: { data: SurvivalPoint[]; maxRo
 
         {/* 50% reference line */}
         <div
-          className="absolute left-12 right-0 border-t-2 border-dashed border-[hsl(var(--knd-amber))]/50"
+          className="absolute left-12 right-0 border-t-2 border-dashed border-primary/50"
           style={{ top: "50%" }}
         />
 
@@ -563,7 +563,7 @@ function GlobalSurvivalChart({ data, maxRounds }: { data: SurvivalPoint[]; maxRo
                     className="w-full rounded-t transition-all hover:opacity-80"
                     style={{
                       backgroundColor: isBelow50
-                        ? "hsl(var(--knd-amber))"
+                        ? "hsl(var(--destructive))"
                         : "hsl(var(--knd-cyan))",
                       height,
                       minHeight: survival > 0 ? "2px" : "0",
@@ -579,7 +579,7 @@ function GlobalSurvivalChart({ data, maxRounds }: { data: SurvivalPoint[]; maxRo
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        Dashed orange line at 50% indicates median survival threshold.
+        Dashed line at 50% indicates median survival threshold.
         Bars turn red when below 50%.
       </p>
     </div>
@@ -633,7 +633,7 @@ function ComparativeSurvivalChart({
 
         {/* 50% reference line */}
         <div
-          className="absolute left-12 right-0 border-t-2 border-dashed border-[hsl(var(--knd-amber))]/50"
+          className="absolute left-12 right-0 border-t-2 border-dashed border-primary/50"
           style={{ top: "50%" }}
         />
 
@@ -665,7 +665,7 @@ function ComparativeSurvivalChart({
                       backgroundColor:
                         cmdSurvival >= glbSurvival
                           ? "hsl(var(--knd-cyan))"
-                          : "hsl(var(--knd-amber))",
+                          : "hsl(var(--destructive))",
                       height: `${cmdSurvival * 100}%`,
                       minHeight: cmdSurvival > 0 ? "2px" : "0",
                     }}
@@ -680,7 +680,7 @@ function ComparativeSurvivalChart({
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        Commander bars are green when above global average, red when below.
+        Commander bars are cyan when above global average, red when below.
         Gray bars show global baseline.
       </p>
     </div>
@@ -693,9 +693,9 @@ function SeatSurvivalTable({ data }: { data: SeatSurvivalPoint[] }) {
   const seatLabels = ["Seat 1", "Seat 2", "Seat 3", "Seat 4"];
   const seatColors = [
     "hsl(var(--knd-cyan))",
-    "hsl(var(--knd-cyan) / 0.7)",
-    "hsl(var(--knd-amber))",
-    "hsl(var(--knd-amber) / 0.7)",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
   ];
 
   return (
@@ -772,7 +772,7 @@ function GlobalSurvivalTable({ data }: { data: SurvivalPoint[] }) {
                   className="py-2 text-right font-mono font-bold"
                   style={{
                     color: isBelow50
-                      ? "hsl(var(--knd-amber))"
+                      ? "hsl(var(--destructive))"
                       : "hsl(var(--knd-cyan))",
                   }}
                 >
