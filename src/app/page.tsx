@@ -98,9 +98,10 @@ export default async function Home() {
 
   // Calculate key highlights
   const DEFAULT_WIN_RATE_PERCENT = "25.0"; // Expected win rate in 4-player pods
+  const BASELINE_WIN_RATE = 0.25; // 25% in decimal form for calculations
   const seat1Stats = (seatStats as SeatStat[]).find((s) => s.seat_position === 0);
   const seat1WinRate = seat1Stats ? (parseFloat(seat1Stats.win_rate) * 100).toFixed(1) : DEFAULT_WIN_RATE_PERCENT;
-  const topPerformersCount = filteredCommanders.filter(c => c.avg_win_rate > 0.25).length;
+  const topPerformersCount = filteredCommanders.filter(c => c.avg_win_rate > BASELINE_WIN_RATE).length;
   const topPerformersPercentage = ((topPerformersCount / filteredCommanders.length) * 100).toFixed(0);
 
   return (
