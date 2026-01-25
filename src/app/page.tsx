@@ -82,6 +82,11 @@ async function getStats() {
   }
 }
 
+interface SeatStat {
+  seat_position: number;
+  win_rate: string;
+}
+
 export default async function Home() {
   const { tournamentCount, commanderCount, topCommanders, topWinRate, seatStats } = await getStats();
   const filteredCommanders = topCommanders.filter(
@@ -92,8 +97,9 @@ export default async function Home() {
   );
 
   // Calculate key highlights
-  const seat1Stats = seatStats.find((s: { seat_position: number }) => s.seat_position === 0);
-  const seat1WinRate = seat1Stats ? (parseFloat(seat1Stats.win_rate) * 100).toFixed(1) : "25.0";
+  const DEFAULT_WIN_RATE_PERCENT = "25.0"; // Expected win rate in 4-player pods
+  const seat1Stats = (seatStats as SeatStat[]).find((s) => s.seat_position === 0);
+  const seat1WinRate = seat1Stats ? (parseFloat(seat1Stats.win_rate) * 100).toFixed(1) : DEFAULT_WIN_RATE_PERCENT;
   const topPerformersCount = filteredCommanders.filter(c => c.avg_win_rate > 0.25).length;
   const topPerformersPercentage = ((topPerformersCount / filteredCommanders.length) * 100).toFixed(0);
 
