@@ -143,13 +143,21 @@ export default function CardsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5 mb-8">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 mb-8">
           <TierCard tier="Core" count={tierCounts.core} description="80%+" tone="primary" />
           <TierCard tier="Essential" count={tierCounts.essential} description="60-79%" tone="primary" muted />
-          <TierCard tier="Common" count={tierCounts.common} description="30-59%" tone="amber" />
-          <TierCard tier="Flex" count={tierCounts.flex} description="10-29%" tone="neutral" />
-          <TierCard tier="Spice" count={tierCounts.spice} description="<10%" tone="neutral" muted />
+          <TierCard tier="Common" count={tierCounts.common} description="30-59%" tone="neutral" />
         </div>
+
+        <Card className="mb-6 bg-muted/20 border-primary/30">
+          <CardContent className="pt-4 pb-4">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-primary">Card hierarchy:</span> Focus on <strong>Core</strong> and <strong>Essential</strong> tiers 
+              for the most impactful cards. Win rate deltas show performance improvement when cards are included, 
+              with statistical significance verified for high-entry commanders.
+            </p>
+          </CardContent>
+        </Card>
 
         <Card className="mb-6">
           <CardHeader className="knd-panel-header">
@@ -306,12 +314,11 @@ function TierCard({
   tier: string;
   count: number;
   description: string;
-  tone: "primary" | "amber" | "neutral";
+  tone: "primary" | "neutral";
   muted?: boolean;
 }) {
   const toneMap: Record<typeof tone, string> = {
     primary: "text-primary",
-    amber: "text-[hsl(var(--knd-amber))]",
     neutral: "text-muted-foreground",
   };
 
@@ -332,7 +339,7 @@ function TierBadge({ tier }: { tier: string }) {
   const tierColors: Record<string, string> = {
     core: "bg-[hsl(var(--knd-cyan))]/15 text-primary border-primary/30",
     essential: "bg-[hsl(var(--knd-cyan))]/10 text-primary border-primary/20",
-    common: "bg-[hsl(var(--knd-amber))]/15 text-[hsl(var(--knd-amber))] border-[hsl(var(--knd-amber))]/30",
+    common: "bg-muted/50 text-foreground border-border/60",
     flex: "bg-muted/40 text-muted-foreground border-border/60",
     spice: "bg-muted/30 text-muted-foreground border-border/40",
   };

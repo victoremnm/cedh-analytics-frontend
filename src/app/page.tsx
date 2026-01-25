@@ -92,9 +92,8 @@ export default async function Home() {
   );
 
   // Calculate key highlights
-  const seat1Stats = seatStats.find((s: any) => s.seat_position === 0);
+  const seat1Stats = seatStats.find((s: { seat_position: number }) => s.seat_position === 0);
   const seat1WinRate = seat1Stats ? (parseFloat(seat1Stats.win_rate) * 100).toFixed(1) : "25.0";
-  const avgWinRate = filteredCommanders.reduce((sum, c) => sum + c.avg_win_rate, 0) / Math.max(filteredCommanders.length, 1);
   const topPerformersCount = filteredCommanders.filter(c => c.avg_win_rate > 0.25).length;
   const topPerformersPercentage = ((topPerformersCount / filteredCommanders.length) * 100).toFixed(0);
 
