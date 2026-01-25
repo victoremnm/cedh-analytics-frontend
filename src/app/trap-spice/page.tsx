@@ -258,9 +258,9 @@ export default function TrapSpicePage() {
             {/* Two-panel layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Trap Cards Panel */}
-            <Card className="bg-card/60 border-border/60 border-l-4 border-l-[hsl(var(--knd-amber))]">
+            <Card className="bg-card/60 border-border/60 border-l-4 border-l-destructive">
                 <CardHeader>
-                  <CardTitle className="text-[hsl(var(--knd-amber))] flex items-center gap-2">
+                  <CardTitle className="text-destructive flex items-center gap-2">
                     Trap Cards ({filteredTrapCards.length})
                   </CardTitle>
                   <p className="text-muted-foreground text-sm">
@@ -343,7 +343,7 @@ export default function TrapSpicePage() {
               </CardHeader>
               <CardContent className="text-muted-foreground space-y-2">
                 <p>
-                  <strong className="text-[hsl(var(--knd-amber))]">Trap Score</strong> = Inclusion Rate ×
+                  <strong className="text-destructive">Trap Score</strong> = Inclusion Rate ×
                   |Baseline Win Rate - Card Win Rate| for cards with negative delta
                 </p>
                 <p>
@@ -377,10 +377,10 @@ function CardWithCommanders({
   const winRate = parseFloat(card.avg_win_rate) * 100;
   const inclusionRate = parseFloat(card.inclusion_rate) * 100;
   const deltaClass =
-    type === "trap" ? "text-[hsl(var(--knd-amber))]" : "text-primary";
+    type === "trap" ? "text-destructive" : "text-primary";
 
   return (
-    <div className="p-3 rounded-lg bg-muted/30 border border-border/60">
+    <div className="p-4 rounded-lg bg-muted/30 border border-border/60">
       {/* Card Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -398,12 +398,12 @@ function CardWithCommanders({
             {card.deck_count} decks · {card.commander_count} commanders
           </p>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-right shrink-0 min-w-[80px]">
           <p className={`font-mono font-bold ${deltaClass}`}>
             {type === "spice" && delta > 0 ? "+" : ""}
             {delta.toFixed(2)}%
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground whitespace-nowrap">
             {winRate.toFixed(1)}% WR · {inclusionRate.toFixed(0)}% incl
           </p>
         </div>
@@ -420,14 +420,14 @@ function CardWithCommanders({
                 href={`/commanders/${commander.commander_id}`}
                 className={`text-xs px-2 py-1 rounded transition-colors ${
                   highlightCommander === commander.commander_id
-                    ? "bg-[hsl(var(--knd-amber))] text-background"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-card/60 hover:bg-muted/40"
                 }`}
               >
-                <span className={highlightCommander === commander.commander_id ? "text-background" : "text-foreground"}>
+                <span className={highlightCommander === commander.commander_id ? "text-primary-foreground" : "text-foreground"}>
                   {normalizeDisplayString(commander.commander).split(" / ")[0]}
                 </span>
-                <span className={`ml-1 ${highlightCommander === commander.commander_id ? "text-background/70" : "text-muted-foreground"}`}>
+                <span className={`ml-1 ${highlightCommander === commander.commander_id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                   ({commander.deck_count})
                 </span>
               </Link>

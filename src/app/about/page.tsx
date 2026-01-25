@@ -56,7 +56,7 @@ export default function AboutPage() {
         </Card>
 
         {/* Primary Statistics */}
-        <Card className="bg-card/60 border-border/60 mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8" id="commander-rankings">
           <CardHeader>
             <CardTitle className="text-primary">Primary Statistics</CardTitle>
           </CardHeader>
@@ -82,7 +82,7 @@ export default function AboutPage() {
               example="If Sol Ring appears in 95 of 100 decks, its inclusion rate is 95%."
             />
 
-            <div className="p-4 bg-muted/30 rounded-lg">
+            <div className="p-4 bg-muted/30 rounded-lg" id="card-frequency">
               <h4 className="text-foreground font-medium mb-2">Card Tiers</h4>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
                 <div className="text-center p-2 rounded bg-[hsl(var(--knd-cyan))]/15">
@@ -111,7 +111,7 @@ export default function AboutPage() {
         </Card>
 
         {/* Survival Analysis */}
-        <Card className="bg-card/60 border-border/60 mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8" id="survival-analysis">
           <CardHeader>
             <CardTitle className="text-primary">Survival Analysis</CardTitle>
           </CardHeader>
@@ -205,9 +205,9 @@ export default function AboutPage() {
         </Card>
 
         {/* Chi-Square Test */}
-        <Card className="bg-card/60 border-border/60 mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8" id="turn-order">
           <CardHeader>
-            <CardTitle className="text-[hsl(var(--knd-amber))]">Chi-Square Test</CardTitle>
+            <CardTitle className="text-foreground">Chi-Square Test & Turn Order</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-muted-foreground">
             <p>
@@ -250,9 +250,9 @@ export default function AboutPage() {
         </Card>
 
         {/* Trap and Spice Methodology */}
-        <Card className="bg-card/60 border-border/60 mb-8">
+        <Card className="bg-card/60 border-border/60 mb-8" id="trap-spice">
           <CardHeader>
-            <CardTitle className="text-[hsl(var(--knd-amber))]">Trap &amp; Spice Analysis</CardTitle>
+            <CardTitle className="text-foreground">Trap &amp; Spice Analysis</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-muted-foreground">
             <StatisticSection

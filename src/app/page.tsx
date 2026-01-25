@@ -26,23 +26,32 @@ interface TopCommander {
 
 async function getStats() {
   try {
-    const [tournamentResult, commanderResult, topCommandersResult, topWinRateResult] =
-      await Promise.all([
-        supabase.from("tournaments").select("*", { count: "exact", head: true }),
-        supabase.from("commanders").select("*", { count: "exact", head: true }),
-        supabase
-          .from("commander_stats")
-          .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
-          .gt("total_entries", 20)
-          .order("total_entries", { ascending: false })
-          .limit(21),
-        supabase
-          .from("commander_stats")
-          .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
-          .gt("total_entries", 30)
-          .order("avg_win_rate", { ascending: false })
-          .limit(10),
-      ]);
+    const [
+      tournamentResult,
+      commanderResult,
+      topCommandersResult,
+      topWinRateResult,
+      seatStatsResult,
+    ] = await Promise.all([
+      supabase.from("tournaments").select("*", { count: "exact", head: true }),
+      supabase.from("commanders").select("*", { count: "exact", head: true }),
+      supabase
+        .from("commander_stats")
+        .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
+        .gt("total_entries", 20)
+        .order("total_entries", { ascending: false })
+        .limit(21),
+      supabase
+        .from("commander_stats")
+        .select("commander_id, commander_name, total_entries, avg_win_rate, conversion_rate_top_16, color_identity")
+        .gt("total_entries", 30)
+        .order("avg_win_rate", { ascending: false })
+        .limit(10),
+      supabase
+        .from("seat_position_stats")
+        .select("*")
+        .order("seat_position"),
+    ]);
 
     if (tournamentResult.error) {
       console.error("Tournament query error:", tournamentResult.error);
@@ -59,6 +68,7 @@ async function getStats() {
       commanderCount: commanderResult.count ?? 0,
       topCommanders: (topCommandersResult.data ?? []) as TopCommander[],
       topWinRate: (topWinRateResult.data ?? []) as TopCommander[],
+      seatStats: seatStatsResult.data ?? [],
     };
   } catch (error) {
     console.error("Failed to fetch stats:", error);
@@ -67,18 +77,26 @@ async function getStats() {
       commanderCount: 0,
       topCommanders: [],
       topWinRate: [],
+      seatStats: [],
     };
   }
 }
 
 export default async function Home() {
-  const { tournamentCount, commanderCount, topCommanders, topWinRate } = await getStats();
+  const { tournamentCount, commanderCount, topCommanders, topWinRate, seatStats } = await getStats();
   const filteredCommanders = topCommanders.filter(
     (commander) => commander.commander_name?.toLowerCase() !== "unknown commander"
   );
   const filteredWinRate = topWinRate.filter(
     (commander) => commander.commander_name?.toLowerCase() !== "unknown commander"
   );
+
+  // Calculate key highlights
+  const seat1Stats = seatStats.find((s: any) => s.seat_position === 0);
+  const seat1WinRate = seat1Stats ? (parseFloat(seat1Stats.win_rate) * 100).toFixed(1) : "25.0";
+  const avgWinRate = filteredCommanders.reduce((sum, c) => sum + c.avg_win_rate, 0) / Math.max(filteredCommanders.length, 1);
+  const topPerformersCount = filteredCommanders.filter(c => c.avg_win_rate > 0.25).length;
+  const topPerformersPercentage = ((topPerformersCount / filteredCommanders.length) * 100).toFixed(0);
 
   return (
     <div className="min-h-screen">
@@ -122,6 +140,47 @@ export default async function Home() {
           </div>
         </header>
 
+        {/* Key Highlights Section */}
+        <section className="mt-10">
+          <h2 className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-muted-foreground">
+            Key Insights
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <HighlightCard
+              label="Seat 1 advantage"
+              value={`${seat1WinRate}%`}
+              subtitle="win or draw rate"
+              description="First seat has statistical edge"
+              tone="primary"
+              icon="🎯"
+            />
+            <HighlightCard
+              label="Above-baseline commanders"
+              value={`${topPerformersPercentage}%`}
+              subtitle="exceed 25% win rate"
+              description="Strong meta diversity"
+              tone="primary"
+              icon="⭐"
+            />
+            <HighlightCard
+              label="Meta stability"
+              value={tournamentCount.toString()}
+              subtitle="tournaments analyzed"
+              description="Robust sample size"
+              tone="neutral"
+              icon="📊"
+            />
+            <HighlightCard
+              label="Commander diversity"
+              value={commanderCount.toString()}
+              subtitle="unique commanders"
+              description="Healthy meta variety"
+              tone="neutral"
+              icon="🎴"
+            />
+          </div>
+        </section>
+
         <section className="mt-10 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -151,7 +210,7 @@ export default async function Home() {
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <MetricCard label="Active commanders" value={commanderCount.toLocaleString()} tone="cyan" />
-                <MetricCard label="Tournaments logged" value={tournamentCount.toLocaleString()} tone="amber" />
+                <MetricCard label="Tournaments logged" value={tournamentCount.toLocaleString()} tone="neutral" />
                 <MetricCard label="Data window" value="Last 90 days" tone="neutral" />
               </div>
             </CardContent>
@@ -231,30 +290,35 @@ export default async function Home() {
             href="/commanders"
             title="Commander Rankings"
             description="Sortable performance data for all commanders"
+            methodologyHref="/about#commander-rankings"
             color="hsl(var(--knd-cyan))"
           />
           <FeatureCard
             href="/cards"
             title="Card Frequency"
             description="Global card inclusion rates and tiers"
-            color="hsl(var(--knd-amber))"
+            methodologyHref="/about#card-frequency"
+            color="hsl(var(--knd-cyan))"
           />
           <FeatureCard
             href="/turn-order"
             title="Turn Order Fairness"
             description="Statistical analysis of seat position advantage"
+            methodologyHref="/about#turn-order"
             color="hsl(var(--knd-cyan))"
           />
           <FeatureCard
             href="/trap-spice"
             title="Trap & Spice Cards"
             description="Find overrated and underrated cards"
-            color="hsl(var(--knd-amber))"
+            methodologyHref="/about#trap-spice"
+            color="hsl(var(--knd-cyan))"
           />
           <FeatureCard
             href="/survival"
             title="Survival Analysis"
             description="Track survival probability through tournament rounds"
+            methodologyHref="/about#survival-analysis"
             color="hsl(var(--knd-cyan))"
           />
           <FeatureCard
@@ -276,11 +340,10 @@ function MetricCard({
 }: {
   label: string;
   value: string;
-  tone: "cyan" | "amber" | "neutral";
+  tone: "cyan" | "neutral";
 }) {
   const toneMap: Record<typeof tone, string> = {
     cyan: "text-primary",
-    amber: "text-[hsl(var(--knd-amber))]",
     neutral: "text-muted-foreground",
   };
 
@@ -290,6 +353,42 @@ function MetricCard({
       <div className="mt-3 flex items-center justify-between">
         <span className={`text-2xl font-semibold ${toneMap[tone]}`}>{value}</span>
       </div>
+    </div>
+  );
+}
+
+function HighlightCard({
+  label,
+  value,
+  subtitle,
+  description,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string;
+  subtitle: string;
+  description: string;
+  tone: "primary" | "neutral";
+  icon?: string;
+}) {
+  const toneMap: Record<typeof tone, string> = {
+    primary: "text-primary",
+    neutral: "text-foreground",
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card/60 p-5">
+      <div className="relative z-10">
+        {icon && <div className="mb-2 text-2xl opacity-70">{icon}</div>}
+        <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">{label}</p>
+        <div className="mt-2">
+          <p className={`text-3xl font-bold ${toneMap[tone]}`}>{value}</p>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-primary/40 to-transparent" />
     </div>
   );
 }
@@ -358,11 +457,13 @@ function FeatureCard({
   title,
   description,
   color,
+  methodologyHref,
 }: {
   href: string;
   title: string;
   description: string;
   color: string;
+  methodologyHref?: string;
 }) {
   return (
     <Link href={href}>
@@ -373,6 +474,15 @@ function FeatureCard({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{description}</p>
+          {methodologyHref && (
+            <Link
+              href={methodologyHref}
+              className="mt-3 inline-block text-xs text-primary hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View methodology →
+            </Link>
+          )}
         </CardContent>
       </Card>
     </Link>
