@@ -53,7 +53,7 @@ export default async function CommandersPage() {
   const POINTS_PER_DRAW = 1;
   
   // Calculate weighted average points per game
-  // Using Math.max to handle edge case of commanders with no games played (defensive)
+  // Handles edge case where totalGames could be zero (prevents division by zero)
   const weightedAvgPoints =
     filteredCommanders.reduce((sum, c) => {
       const totalGames = c.total_wins + c.total_losses + c.total_draws;
